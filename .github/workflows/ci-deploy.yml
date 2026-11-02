@@ -1,0 +1,76 @@
+name: CI and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Typecheck, unit tests, build, e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Wrangler dry run
+        run: npx wrangler deploy --dry-run
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: End-to-end tests (iPhone + Fire HD sizes, offline, Chromium and WebKit)
+        run: npx playwright test
+        env:
+          CI: 'true'
+          E2E_WEBKIT: '1'
+      - uses: actions/upload-artifact@v7.0.2
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+
+  deploy:
+    name: Deploy to Cloudflare
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: cloudflare/wrangler-action@v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+      - name: Verify the live site serves this commit
+        run: |
+          for i in $(seq 1 20); do
+            got=$(curl -fsS "https://pony.reloru.workers.dev/version.json?ts=$(date +%s)" | python3 -c 'import sys,json; print(json.load(sys.stdin)["commit"])' || true)
+            if [ "$got" = "$GITHUB_SHA" ]; then echo "Live site is at $got"; exit 0; fi
+            echo "live commit: ${got:-none}; waiting..."; sleep 6
+          done
+          echo "Live site did not reach $GITHUB_SHA"; exit 1

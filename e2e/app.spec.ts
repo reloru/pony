@@ -178,8 +178,12 @@ test('critter: belly toggle, legs and the 3D preview', async ({ page, context })
   const toggle = page.locator('[aria-label="3D view"]');
   if (await toggle.count()) await toggle.click();
   await settle3d(page);
-  await expect(page.getByTestId('view3d')).toHaveAttribute('data-state', 'drawn');
-  await expect(page.locator('[data-testid="view3d"] canvas')).toHaveCount(1);
+  // Chromium must really draw it. Linux WebKit in CI may lack WebGL; then the flat fallback must show.
+  if (test.info().project.name.includes('webkit')) await expect(page.getByTestId('view3d')).toHaveAttribute('data-state', /drawn|fallback/);
+  else {
+    await expect(page.getByTestId('view3d')).toHaveAttribute('data-state', 'drawn');
+    await expect(page.locator('[data-testid="view3d"] canvas')).toHaveCount(1);
+  }
   expect(offsite).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -238,7 +242,7 @@ test('works fully offline after the first visit', async ({ page, context }) => {
   const toggle = page.locator('[aria-label="3D view"]');
   if (await toggle.count()) await toggle.click();
   await settle3d(page);
-  await expect(page.getByTestId('view3d')).toHaveAttribute('data-state', 'drawn');
+  await expect(page.getByTestId('view3d')).toHaveAttribute('data-state', test.info().project.name.includes('webkit') ? /drawn|fallback/ : 'drawn');
   await page.click('[data-testid="make-it"]');
   await expect(page.getByTestId('gather')).toBeVisible();
   await page.click('[data-testid="next"]');

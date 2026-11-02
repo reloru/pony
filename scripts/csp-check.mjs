@@ -1,0 +1,22 @@
+// Dev helper: walk the app on a server that applies _headers and report CSP violations / errors.
+import { chromium } from 'playwright';
+const base = process.argv[2];
+const b = await chromium.launch({ args: ['--enable-unsafe-swiftshader'] });
+const p = await b.newPage({ viewport: { width: 430, height: 932 }, hasTouch: true });
+const issues = [];
+p.on('console', (m) => { if (m.type() === 'error' || /Content Security Policy/i.test(m.text())) issues.push(m.text()); });
+p.on('pageerror', (e) => issues.push('PAGEERROR ' + e.message));
+await p.addInitScript(() => document.addEventListener('securitypolicyviolation', (e) => console.error('CSP violation', e.violatedDirective, e.blockedURI)));
+await p.goto(base + '/#/');
+await p.click('[data-kind="critter"]');
+await p.click('[data-testid="idea-k-bee"]');
+await p.click('[aria-label="3D view"]');
+await p.waitForSelector('[data-testid="view3d"][data-state="drawn"], [data-testid="view3d"][data-state="fallback"]', { timeout: 150000 });
+console.log('3D state', await p.getAttribute('[data-testid="view3d"]', 'data-state'));
+await p.locator('.name-btn').hover({ timeout: 150000 });
+await p.click('[data-testid="make-it"]');
+await p.click('[data-testid="next"]');
+await p.goto(base + '/#/grownups');
+await p.getByText('Ready to use offline').or(p.getByText('Everything is stored')).first().waitFor({ timeout: 60000 });
+console.log(issues.length ? 'ISSUES:\n' + issues.join('\n') : 'no CSP violations or errors');
+await b.close();

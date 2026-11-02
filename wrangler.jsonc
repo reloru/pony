@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // Assets-only Worker: Cloudflare serves the built static site from ./dist.
+  "name": "pony",
+  "compatibility_date": "2026-11-02",
+  "assets": {
+    "directory": "./dist"
+  },
+  "workers_dev": true,
+  "preview_urls": false
+}

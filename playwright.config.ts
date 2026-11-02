@@ -9,14 +9,16 @@ const iosUA = devices['iPhone 14 Pro Max'].userAgent;
 const fireUA =
   'Mozilla/5.0 (Linux; Android 11; KFTRWI) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
+// Chromium in CI has no GPU; this flag lets WebGL run on its software renderer.
+const chromiumLaunch = { args: ['--enable-unsafe-swiftshader'] };
 const projects = [
-  { name: 'iphone-14-pro-max', use: { browserName: 'chromium' as const, viewport: { width: 430, height: 932 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, userAgent: iosUA } },
-  { name: 'iphone-se', use: { browserName: 'chromium' as const, viewport: { width: 375, height: 667 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: iosUA } },
-  { name: 'fire-hd-10-portrait', use: { browserName: 'chromium' as const, viewport: { width: 800, height: 1280 }, deviceScaleFactor: 1.5, isMobile: true, hasTouch: true, userAgent: fireUA } },
-  { name: 'fire-hd-10-landscape', use: { browserName: 'chromium' as const, viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1.5, isMobile: true, hasTouch: true, userAgent: fireUA } },
+  { name: 'iphone-14-pro-max', use: { browserName: 'chromium' as const, launchOptions: chromiumLaunch, viewport: { width: 430, height: 932 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, userAgent: iosUA } },
+  { name: 'iphone-se', use: { browserName: 'chromium' as const, launchOptions: chromiumLaunch, viewport: { width: 375, height: 667 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: iosUA } },
+  { name: 'fire-hd-10-portrait', use: { browserName: 'chromium' as const, launchOptions: chromiumLaunch, viewport: { width: 800, height: 1280 }, deviceScaleFactor: 1.5, isMobile: true, hasTouch: true, userAgent: fireUA } },
+  { name: 'fire-hd-10-landscape', use: { browserName: 'chromium' as const, launchOptions: chromiumLaunch, viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1.5, isMobile: true, hasTouch: true, userAgent: fireUA } },
 ];
 if (process.env.E2E_WEBKIT) {
-  projects.push({ name: 'iphone-webkit', use: { ...devices['iPhone 14 Pro Max'], browserName: 'webkit' as unknown as 'chromium' } });
+  projects.push({ name: 'iphone-webkit', use: { ...devices['iPhone 14 Pro Max'], browserName: 'webkit' } } as unknown as (typeof projects)[number]);
 }
 
 export default defineConfig({
@@ -30,7 +32,6 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:4173',
     serviceWorkers: 'allow',
-    launchOptions: { args: ['--enable-unsafe-swiftshader'] },
   },
   projects,
   webServer: {
