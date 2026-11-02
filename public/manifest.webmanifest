@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "Bead Studio",
+  "short_name": "Bead Studio",
+  "description": "Design pony bead bracelets, shapes, cuffs and 3D critters, then make them step by step.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fff4f9",
+  "theme_color": "#ff4f9a",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

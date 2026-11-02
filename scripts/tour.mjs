@@ -1,0 +1,46 @@
+// Dev helper: walk the main screens at a given viewport and save screenshots.
+// Usage: node scripts/tour.mjs <baseUrl> <outDir> <width> <height> [touch 1|0]
+import { chromium } from 'playwright';
+const [, , base, out, w, h, touch] = process.argv;
+const b = await chromium.launch();
+const ctx = await b.newContext({ viewport: { width: +w, height: +h }, deviceScaleFactor: 2, hasTouch: touch === '1', isMobile: touch === '1' });
+const p = await ctx.newPage();
+const errs = [];
+p.on('pageerror', (e) => errs.push(e.message));
+p.on('console', (m) => m.type() === 'error' && errs.push(m.text()));
+const snap = async (name) => {
+  await p.waitForTimeout(500);
+  await p.screenshot({ path: `${out}/${name}.png` });
+};
+await p.goto(base + '/#/', { waitUntil: 'networkidle' });
+await snap('1-home');
+await p.click('[data-kind="critter"]');
+await snap('2-critters');
+await p.click('[data-testid="idea-k-bee"]');
+await p.waitForSelector('[data-testid="edit-canvas"]');
+await snap('3-editor-critter');
+  if (process.env.SKIP3D) {} 
+await p.click('[data-testid="make-it"]');
+await snap('4-make-gather');
+await p.click('[data-testid="next"]');
+await p.click('[data-testid="next"]');
+await snap('5-make-step2');
+await p.click('[data-testid="next"]');
+await snap('6-make-step3');
+await p.click('[data-testid="next"]');
+await p.click('[data-testid="next"]');
+await snap('7-make-step5');
+await p.goto(base + '/#/k/cuff');
+await p.click('[data-testid="idea-c-hearts"]');
+await p.waitForSelector('[data-testid="edit-canvas"]');
+await snap('8-editor-cuff');
+await p.goto(base + '/#/k/bracelet');
+await p.click('[data-testid="idea-b-galaxy"]');
+await p.waitForSelector('[data-testid="edit-canvas"]');
+await snap('9-editor-bracelet');
+await p.goto(base + '/#/beads');
+await snap('10-beads');
+await p.goto(base + '/#/grownups');
+await snap('11-grownups');
+console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'no errors');
+await b.close();
