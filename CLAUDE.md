@@ -28,4 +28,4 @@ Automatic: push to `main` → `.github/workflows/ci-deploy.yml` runs the checks,
 - **Store hooks** (`useStore`, `useOffline`) re-check state after subscribing; keep that, or the app can render blank on load.
 - **Kid UX**: tap targets ≥ 44 px (the e2e suite checks), icons plus one-word labels, no horizontal page scroll at 375–1280 px wide.
 - **Palette**: exactly the colors in `src/core/colors.ts` (49 solid, 20 see-through, 10 pearl, 10 star). Don't add colors.
-- Dev helpers in `scripts/` (`shot.mjs`, `tour.mjs`, `steps.mjs`, `fps3d.mjs`, `snap3d.mjs`, `csp-check.mjs`, `make-icons.mjs`) need `vite preview` (or `wrangler dev` for headers) running on the given base URL.
+- Dev helpers in `scripts/` (`shot.mjs`, `tour.mjs`, `steps.mjs`, `fps3d.mjs`, `snap3d.mjs`, `drag-probe.mjs`, `csp-check.mjs`, `make-icons.mjs`) need `vite preview` (or `wrangler dev` for headers) running on the given base URL.

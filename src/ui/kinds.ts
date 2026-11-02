@@ -1,4 +1,4 @@
-import { newId } from '../core/edit';
+import { clone, newId } from '../core/edit';
 import type { Design, Kind } from '../core/types';
 
 export const KIND_INFO: Record<Kind, { label: string; one: string; color: string; ink: string; cord: string; is3d: boolean }> = {
@@ -43,7 +43,7 @@ export function blankDesign(kind: Kind): Design {
 
 export function copyOf(d: Design, name?: string): Design {
   const now = Date.now();
-  const c = structuredClone(d) as Design;
+  const c = clone(d);
   c.id = newId();
   c.name = name ?? d.name;
   c.createdAt = now;

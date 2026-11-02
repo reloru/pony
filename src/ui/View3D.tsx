@@ -41,8 +41,10 @@ export function View3D({ design }: { design: Design }) {
     };
   }, []);
 
+  // While she paints, wait for a short pause before rebuilding the 3D beads.
   useEffect(() => {
-    viewer.current?.update(design);
+    const t = setTimeout(() => viewer.current?.update(design), 180);
+    return () => clearTimeout(t);
   }, [design]);
 
   return (

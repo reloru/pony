@@ -203,6 +203,8 @@ test('cuff size controls and "my beads" recolor', async ({ page }) => {
 
 test('backup download and restore into a fresh device', async ({ page, browser }, info) => {
   await openStarter(page, 'critter', 'k-owl');
+  await page.click('[data-testid="make-it"]'); // a starter copy is saved once she makes (or edits) it
+  await expect(page.getByTestId('gather')).toBeVisible();
   await page.goto('/#/beads');
   await page.click('[data-color="p-pink"]');
   await page.waitForTimeout(600);

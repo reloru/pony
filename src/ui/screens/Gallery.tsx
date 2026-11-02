@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { Copy, MoreHorizontal, Play, Plus, Star, Trash2 } from 'lucide-preact';
 import { go } from '../../app/router';
-import { deleteDesign, saveDesign, useStore } from '../../app/store';
+import { addDraft, deleteDesign, saveDesign, useStore } from '../../app/store';
 import { STARTERS } from '../../core/designs';
 import type { Design, Kind } from '../../core/types';
 import { Sheet, TopBar } from '../common';
@@ -10,7 +10,8 @@ import { blankDesign, copyOf, KIND_INFO } from '../kinds';
 import { chime } from '../sound';
 
 function startFrom(d: Design) {
-  const c = saveDesign(copyOf(d));
+  const c = copyOf(d);
+  addDraft(c);
   chime();
   go({ name: 'edit', id: c.id });
 }
@@ -28,7 +29,8 @@ export function KindGallery({ kind }: { kind: Kind }) {
           class="card fresh"
           data-testid="fresh"
           onClick={() => {
-            const d = saveDesign(blankDesign(kind));
+            const d = blankDesign(kind);
+            addDraft(d);
             chime();
             go({ name: 'edit', id: d.id });
           }}

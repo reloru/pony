@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   Box,
   Eraser,
@@ -18,7 +18,7 @@ import {
   Plus,
 } from 'lucide-preact';
 import { go } from '../../app/router';
-import { getState, saveDesign, useStore } from '../../app/store';
+import { flush, getDraft, getState, saveDesign, useStore } from '../../app/store';
 import { COLORS, FINISH_LABEL, isStar } from '../../core/colors';
 import * as E from '../../core/edit';
 import { totalBeads } from '../../core/steps';
@@ -51,7 +51,7 @@ function useWide() {
 
 export function Editor({ id }: { id: string }) {
   const s = useStore();
-  const found = s.designs.find((d) => d.id === id);
+  const found = s.designs.find((d) => d.id === id) ?? getDraft(id);
   if (!found) {
     return (
       <div class="screen">
@@ -84,7 +84,43 @@ function EditorInner({ initial }: { initial: Design }) {
   const info = KIND_INFO[design.kind];
   const [show3d, setShow3d] = useState(false);
   const [sheet, setSheet] = useState<null | 'name' | 'pattern'>(null);
-  const [shakeKey, setShakeKey] = useState(0);
+  const [shaking, setShaking] = useState(false);
+
+  // While she drags paint across beads, keep changes local and save once the stroke settles.
+  const pending = useRef<Design | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushSave = () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    if (pending.current) saveDesign(pending.current);
+    pending.current = null;
+  };
+  const queueSave = (n: Design) => {
+    pending.current = n;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(flushSave, 350);
+  };
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') {
+        flushSave();
+        void flush();
+      }
+    };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', onHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', onHide);
+      flushSave();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function save(n: Design) {
+    flushSave();
+    saveDesign(n);
+  }
 
   function commit(n: Design, pushUndo = true) {
     if (pushUndo) {
@@ -92,7 +128,7 @@ function EditorInner({ initial }: { initial: Design }) {
       setRedo([]);
     }
     setDesign(n);
-    saveDesign(n);
+    save(n);
   }
 
   function onCanvasChange(n: Design, start: boolean) {
@@ -101,7 +137,7 @@ function EditorInner({ initial }: { initial: Design }) {
       setRedo([]);
     }
     setDesign(n);
-    saveDesign(n);
+    queueSave(n);
     pop();
   }
 
@@ -110,7 +146,7 @@ function EditorInner({ initial }: { initial: Design }) {
       const prev = u[u.length - 1];
       if (prev) {
         setDesign(prev);
-        saveDesign(prev);
+        queueSave(prev);
       }
       return u.slice(0, -1);
     });
@@ -122,7 +158,7 @@ function EditorInner({ initial }: { initial: Design }) {
     setUndo(undo.slice(0, -1));
     setRedo([...redo, design]);
     setDesign(prev);
-    saveDesign(prev);
+    save(prev);
     boop();
   }
   function doRedo() {
@@ -131,14 +167,15 @@ function EditorInner({ initial }: { initial: Design }) {
     setRedo(redo.slice(0, -1));
     setUndo([...undo, design]);
     setDesign(next);
-    saveDesign(next);
+    save(next);
     pop();
   }
 
   function reject(msg: string) {
     toast(msg);
     boop();
-    setShakeKey((k) => k + 1);
+    setShaking(true);
+    setTimeout(() => setShaking(false), 400);
   }
 
   const owned = getState().owned;
@@ -155,10 +192,14 @@ function EditorInner({ initial }: { initial: Design }) {
     { id: 'swap', label: 'Swap', icon: <Replace size={28} /> },
   ];
 
-  const pickColor = (c: string) => {
-    setColor(c);
-    if (isStar(c) && design.kind !== 'bracelet' && tool !== 'leg') toast('Stars go on leg tips ⭐ (Legs tool)');
-  };
+  const kind = design.kind;
+  const pickColor = useCallback(
+    (c: string) => {
+      setColor(c);
+      if (isStar(c) && kind !== 'bracelet' && tool !== 'leg') toast('Stars go on leg tips ⭐ (Legs tool)');
+    },
+    [kind, tool],
+  );
 
   const canvas = <EditCanvas design={design} tool={tool} mirror={mirror} color={color} onChange={onCanvasChange} onCancelStroke={cancelStroke} onReject={reject} />;
 
@@ -183,6 +224,7 @@ function EditorInner({ initial }: { initial: Design }) {
           class="btn pink"
           data-testid="make-it"
           onClick={() => {
+            save(design);
             chime();
             go({ name: 'make', id: design.id });
           }}
@@ -194,7 +236,7 @@ function EditorInner({ initial }: { initial: Design }) {
 
       <div class="stage">
         {(!show3d || sideBySide) && (
-          <div class={`canvas-wrap${shakeKey ? ' shake' : ''}`} key={`c${shakeKey}`}>
+          <div class={`canvas-wrap${shaking ? ' shake' : ''}`}>
             {canvas}
           </div>
         )}

@@ -97,18 +97,24 @@ export function EditCanvas({ design, tool, mirror, color, onChange, onCancelStro
   const live = useRef(design);
   live.current = design;
 
+  // Reading the screen transform forces the browser to recompute layout, so read it once per
+  // stroke instead of on every pointer move (the view doesn't change mid-stroke).
+  const ctm = useRef<{ inv: DOMMatrix; ppu: number } | null>(null);
+  function readCtm() {
+    const m = svg.current?.getScreenCTM();
+    ctm.current = m ? { inv: m.inverse(), ppu: Math.hypot(m.a, m.b) } : null;
+  }
+
   function toSvg(e: PointerEvent) {
-    const el = svg.current!;
-    const m = el.getScreenCTM();
-    if (!m) return { x: 0, y: 0 };
-    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+    if (!ctm.current) readCtm();
+    if (!ctm.current) return { x: 0, y: 0 };
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.current.inv);
     return { x: p.x, y: p.y };
   }
 
   function pxPerUnit() {
-    const el = svg.current;
-    const m = el?.getScreenCTM();
-    return m ? Math.hypot(m.a, m.b) : 3;
+    if (!ctm.current) readCtm();
+    return ctm.current?.ppu ?? 3;
   }
 
   function hit(p: { x: number; y: number }, onlyBeads = false): Target | null {
@@ -145,9 +151,9 @@ export function EditCanvas({ design, tool, mirror, color, onChange, onCancelStro
             if (first) onReject('Stars go on leg tips ⭐');
             return null;
           }
-          if (E.colorAt(d, ref) === color && !mirror) return null;
-          const n = E.paint(d, ref, color, mirror);
-          return JSON.stringify(n) === JSON.stringify(d) ? null : n;
+          const m = mirror ? E.mirrorRef(d, ref) : null;
+          if (E.colorAt(d, ref) === color && (!m || E.colorAt(d, m) === color)) return null;
+          return E.paint(d, ref, color, mirror);
         }
         if (!first) return null;
         if (tool === 'fill') {
@@ -204,6 +210,7 @@ export function EditCanvas({ design, tool, mirror, color, onChange, onCancelStro
 
   function onDown(e: PointerEvent) {
     e.preventDefault();
+    readCtm();
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 2) {
@@ -240,6 +247,7 @@ export function EditCanvas({ design, tool, mirror, color, onChange, onCancelStro
       const dx = Math.max(-maxPan(zoom, cw), Math.min(maxPan(zoom, cw), pz.dx - (mid.x - pz.mid.x) / ppu));
       const dy = Math.max(-maxPan(zoom, ch), Math.min(maxPan(zoom, ch), pz.dy - (mid.y - pz.mid.y) / ppu));
       setView({ zoom, dx, dy });
+      ctm.current = null;
       return;
     }
     const s = stroke.current;

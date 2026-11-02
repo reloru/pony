@@ -14,7 +14,8 @@ import {
   type WeaveRow,
 } from './types';
 
-export const clone = <T>(x: T): T => structuredClone(x);
+/** Designs are plain JSON. (structuredClone would need iOS 15.4+.) */
+export const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 
 export function newId(): string {
   const c = globalThis.crypto;

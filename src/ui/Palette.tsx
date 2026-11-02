@@ -1,3 +1,4 @@
+import { memo } from 'preact/compat';
 import { Check, Heart } from 'lucide-preact';
 import { setSettings, useStore } from '../app/store';
 import { COLORS, FINISH_LABEL, type Finish } from '../core/colors';
@@ -6,7 +7,7 @@ import { pop } from './sound';
 
 const ORDER: Finish[] = ['solid', 'clear', 'pearl', 'star'];
 
-export function Palette({ value, onPick }: { value: string; onPick: (id: string) => void }) {
+export const Palette = memo(function Palette({ value, onPick }: { value: string; onPick: (id: string) => void }) {
   const s = useStore();
   const mine = s.settings.mineOnly && s.owned.size > 0;
   return (
@@ -56,4 +57,4 @@ export function Palette({ value, onPick }: { value: string; onPick: (id: string)
       </div>
     </div>
   );
-}
+});

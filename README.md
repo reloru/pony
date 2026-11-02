@@ -48,6 +48,8 @@ The tests (`tests/core.test.ts`) check that for **every starter and 400 random d
 
 The **Grown-ups** screen (gear icon) has backup, restore, offline status and these instructions.
 
+The 3D preview needs WebGL 2 (iOS 15 or later, current Chrome). Without it, the app shows the flat picture instead. The app was tested in Chromium at iPhone and Fire HD screen sizes and in Linux WebKit in CI. It hasn't been tested on a physical iPhone or Fire tablet.
+
 ## Privacy and offline
 
 - No accounts, ads, analytics or tracking. Everything is stored on the device in IndexedDB.

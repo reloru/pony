@@ -186,3 +186,35 @@ export function stepBeads(s: Step): ColorId[] {
       return [];
   }
 }
+
+// ---------------------------------------------------------------------------
+// Build progress after an edit
+
+/** The parts of a design that affect what gets built (not its name or progress). */
+export function buildBody(d: Design): string {
+  switch (d.kind) {
+    case 'bracelet':
+      return JSON.stringify(['bracelet', d.beads]);
+    case 'cuff':
+      return JSON.stringify(['cuff', d.rows]);
+    default:
+      return JSON.stringify([d.kind, d.keyring, d.rows]);
+  }
+}
+
+/**
+ * Where to resume making a design after it was edited. Pages: 0 = bead list, k = step k,
+ * steps+1 = done. If a step she already passed changed, she goes back to it, so the
+ * instructions never skip something different from what she has strung. A different cord
+ * length alone doesn't send her back (the cut step is skipped).
+ */
+export function progressAfterEdit(before: Design, after: Design, page: number): number {
+  if (page <= 0 || buildBody(before) === buildBody(after)) return page;
+  const a = steps(before);
+  const b = steps(after);
+  const n = Math.max(a.length, b.length);
+  for (let i = 1; i < n; i++) {
+    if (JSON.stringify(a[i]) !== JSON.stringify(b[i])) return Math.min(page, i + 1);
+  }
+  return Math.min(page, b.length + 1);
+}

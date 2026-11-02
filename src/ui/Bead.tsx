@@ -8,6 +8,12 @@ export function BeadDefs() {
   return (
     <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
       <defs>
+        <radialGradient id="bd-barrel" cx="0.38" cy="0.3" r="0.8">
+          <stop offset="0" stop-color="#fff" stop-opacity="0.55" />
+          <stop offset="0.3" stop-color="#fff" stop-opacity="0.1" />
+          <stop offset="0.62" stop-color="#000" stop-opacity="0" />
+          <stop offset="1" stop-color="#000" stop-opacity="0.38" />
+        </radialGradient>
         <linearGradient id="bd-shade" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#fff" stop-opacity="0.55" />
           <stop offset="0.28" stop-color="#fff" stop-opacity="0.12" />
@@ -89,8 +95,7 @@ export const Bead = memo(function Bead({ x, y, angle, color: id, dim, glow }: Be
       ) : (
         <>
           <rect x={-W / 2} y={-H / 2} width={W} height={H} rx={R} fill={c.hex} stroke={edge} stroke-width="0.45" />
-          <rect x={-W / 2} y={-H / 2} width={W} height={H} rx={R} fill="url(#bd-shade)" />
-          <rect x={-W / 2} y={-H / 2} width={W} height={H} rx={R} fill="url(#bd-ends)" />
+          <rect x={-W / 2} y={-H / 2} width={W} height={H} rx={R} fill="url(#bd-barrel)" />
           {c.finish === 'pearl' && <rect x={-W / 2} y={-H / 2} width={W} height={H} rx={R} fill="url(#bd-pearl)" />}
         </>
       )}
@@ -99,7 +104,7 @@ export const Bead = memo(function Bead({ x, y, angle, color: id, dim, glow }: Be
 });
 
 /** A round color chip for palettes and bead lists, showing the finish. */
-export function Swatch({ id, size = 40 }: { id: string; size?: number }) {
+export const Swatch = memo(function Swatch({ id, size = 40 }: { id: string; size?: number }) {
   const c = color(id);
   return (
     <svg width={size} height={size} viewBox="-10 -10 20 20" aria-hidden="true" class="swatch-svg">
@@ -119,4 +124,4 @@ export function Swatch({ id, size = 40 }: { id: string; size?: number }) {
       )}
     </svg>
   );
-}
+});

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { buildBody, progressAfterEdit } from '../core/steps';
 import type { ColorId, Design } from '../core/types';
 import { DEFAULT_SETTINGS, mergeDesigns, type ParsedBackup, type Settings } from './backup';
 
@@ -168,8 +169,25 @@ if (typeof document !== 'undefined') {
   window.addEventListener('pagehide', () => void flush());
 }
 
+// Designs opened from a starter or "Start fresh" are drafts until she changes something or
+// presses Make, so browsing ideas doesn't fill My Designs with untouched copies.
+const drafts = new Map<string, Design>();
+export function addDraft(d: Design) {
+  drafts.set(d.id, d);
+}
+export function getDraft(id: string): Design | undefined {
+  return drafts.get(id);
+}
+
 export function saveDesign(d: Design) {
-  const next = { ...d, updatedAt: Date.now() };
+  const prev = state.designs.find((x) => x.id === d.id);
+  const next: Design = { ...d, updatedAt: Date.now() };
+  // Progress belongs to the stored copy; keep it consistent with what changed.
+  delete next.buildStep;
+  delete next.madeAt;
+  if (prev?.buildStep) next.buildStep = progressAfterEdit(prev, next, prev.buildStep);
+  if (prev?.madeAt && buildBody(prev) === buildBody(next)) next.madeAt = prev.madeAt;
+  drafts.delete(d.id);
   const others = state.designs.filter((x) => x.id !== d.id);
   set({ designs: [next, ...others] });
   pendingDeletes.delete(d.id);
