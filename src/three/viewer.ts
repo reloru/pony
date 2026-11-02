@@ -68,7 +68,7 @@ export interface Viewer {
   dispose(): void;
 }
 
-export function createViewer(container: HTMLElement, design: Design, onLost: () => void): Viewer {
+export function createViewer(container: HTMLElement, design: Design, onLost: () => void, onFirstFrame: () => void = () => {}): Viewer {
   const renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
   renderer.setClearColor(0x000000, 0);
   container.appendChild(renderer.domElement);
@@ -101,6 +101,9 @@ export function createViewer(container: HTMLElement, design: Design, onLost: () 
   };
   let meshes: InstancedMesh[] = [];
   let kind = '';
+  // Shaders compile in the background (KHR_parallel_shader_compile where available); we don't
+  // draw until they're ready, so the first frame never freezes the page.
+  let compiling = 0;
 
   const up = new Vector3(0, 1, 0);
   const tmpQ = new Quaternion();
@@ -115,7 +118,12 @@ export function createViewer(container: HTMLElement, design: Design, onLost: () 
       m.dispose();
     }
     meshes = [];
-    const beads = layout3d(d);
+    // Critters are laid out with z = up (their back). Turn them so y is up like everything
+    // else: the back faces up and the head points away from the camera.
+    const beads =
+      d.kind === 'critter'
+        ? layout3d(d).map((b) => ({ ...b, p: [b.p[0], b.p[2], -b.p[1]] as Bead3D['p'], axis: [b.axis[0], b.axis[2], -b.axis[1]] as Bead3D['axis'] }))
+        : layout3d(d);
     const groups: Record<Group, Bead3D[]> = { solid: [], pearl: [], clear: [], star: [] };
     for (const b of beads) {
       const f = color(b.color).finish;
@@ -150,20 +158,50 @@ export function createViewer(container: HTMLElement, design: Design, onLost: () 
       const dist = radius / Math.sin((camera.fov * Math.PI) / 360) + 5;
       const dir =
         d.kind === 'critter'
-          ? new Vector3(0.35, -0.75, 1)
+          ? new Vector3(0.45, 1.05, 1)
           : d.kind === 'cuff'
             ? new Vector3(0.55, 0.45, 1)
             : d.kind === 'bracelet'
               ? new Vector3(0, -0.55, 1)
               : new Vector3(0, -0.25, 1);
       camera.position.copy(dir.normalize().multiplyScalar(dist));
-      camera.up.set(0, d.kind === 'critter' ? 0 : 1, d.kind === 'critter' ? 1 : 0);
       controls.target.set(0, 0, 0);
       controls.minDistance = radius * 1.2;
       controls.maxDistance = dist * 2.5;
       controls.update();
     }
-    requestRender();
+    compiling++;
+    renderer
+      .compileAsync(scene, camera)
+      .catch(() => undefined)
+      .finally(() => {
+        compiling--;
+        requestRender();
+      });
+  }
+
+  /** Call `fn` once the GPU has really finished the work queued so far (WebGL2 fence, polled without blocking). */
+  function whenGpuDone(fn: () => void) {
+    const gl = renderer.getContext();
+    if (!('fenceSync' in gl)) {
+      setTimeout(fn, 0);
+      return;
+    }
+    const g2 = gl as WebGL2RenderingContext;
+    const sync = g2.fenceSync(g2.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (!sync) {
+      setTimeout(fn, 0);
+      return;
+    }
+    g2.flush();
+    const poll = () => {
+      if (disposed) return g2.deleteSync(sync);
+      if (g2.getSyncParameter(sync, g2.SYNC_STATUS) === g2.SIGNALED) {
+        g2.deleteSync(sync);
+        fn();
+      } else setTimeout(poll, 50);
+    };
+    setTimeout(poll, 50);
   }
 
   // ---------------------------------------------------------------- render loop (on demand)
@@ -173,9 +211,10 @@ export function createViewer(container: HTMLElement, design: Design, onLost: () 
   let disposed = false;
   const frame = (t: number) => {
     raf = 0;
-    if (disposed) return;
+    if (disposed || compiling > 0) return;
     const changed = controls.update();
     renderer.render(scene, camera);
+    if (!lastFrame) whenGpuDone(onFirstFrame);
     lastFrame = t;
     if (controls.autoRotate || changed || running) raf = requestAnimationFrame(frame);
   };

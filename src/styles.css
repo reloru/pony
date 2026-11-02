@@ -201,9 +201,17 @@ svg {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
-@media (min-width: 760px) {
+@media (min-width: 760px) and (min-aspect-ratio: 5/4) {
   .kind-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (min-width: 600px) and (max-aspect-ratio: 5/4) {
+  .kind-grid {
+    gap: 20px;
+  }
+  .kind-tile .name {
+    font-size: 32px;
   }
 }
 .kind-tile {
@@ -825,8 +833,10 @@ svg {
 }
 .how svg {
   width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
   height: auto;
-  max-height: 30vh;
+  max-height: 28vh;
 }
 .bead-seq {
   display: flex;

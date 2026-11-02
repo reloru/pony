@@ -19,7 +19,7 @@ import {
 } from 'lucide-preact';
 import { go } from '../../app/router';
 import { getState, saveDesign, useStore } from '../../app/store';
-import { COLORS, isStar } from '../../core/colors';
+import { COLORS, FINISH_LABEL, isStar } from '../../core/colors';
 import * as E from '../../core/edit';
 import { totalBeads } from '../../core/steps';
 import { BEAD, type Design } from '../../core/types';
@@ -412,7 +412,7 @@ function PatternSheet({ start, onApply, onClose }: { start: string; onApply: (co
           <button
             key={c.id}
             class="swatch"
-            aria-label={c.name}
+            aria-label={`${FINISH_LABEL[c.finish]} ${c.name}`}
             onClick={() => {
               const next = [...colors];
               next[slot] = c.id;

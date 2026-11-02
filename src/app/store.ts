@@ -39,10 +39,15 @@ export const getState = () => state;
 
 export function useStore(): AppState {
   const [, force] = useState(0);
+  const seen = state;
   useEffect(() => {
     const l = () => force((n) => n + 1);
     listeners.add(l);
+    // The state may have changed between render and this effect (e.g. the database finished
+    // loading); without this check that update would be missed and the screen would stay blank.
+    if (state !== seen) l();
     return () => void listeners.delete(l);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return state;
 }

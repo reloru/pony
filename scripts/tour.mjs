@@ -19,6 +19,7 @@ await snap('2-critters');
 await p.click('[data-testid="idea-k-bee"]');
 await p.waitForSelector('[data-testid="edit-canvas"]');
 await snap('3-editor-critter');
+  if (process.env.SKIP3D) {} 
 await p.click('[data-testid="make-it"]');
 await snap('4-make-gather');
 await p.click('[data-testid="next"]');

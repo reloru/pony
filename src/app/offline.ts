@@ -24,10 +24,13 @@ function set(p: Partial<OfflineInfo>) {
 
 export function useOffline(): OfflineInfo {
   const [, force] = useState(0);
+  const seen = info;
   useEffect(() => {
     const f = () => force((n) => n + 1);
     subs.add(f);
+    if (info !== seen) f();
     return () => void subs.delete(f);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return info;
 }

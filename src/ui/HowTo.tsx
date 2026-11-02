@@ -31,24 +31,26 @@ function rowX(n: number, i: number) {
 }
 
 /** String on the left cord (pink), push the right cord (blue) back through. */
-function CrossRow({ beads, belly }: { beads: ColorId[]; belly: boolean }) {
+function CrossRow({ beads, belly, fromRing }: { beads: ColorId[]; belly: boolean; fromRing: boolean }) {
   const n = beads.length;
   const half = (n / 2) * BEAD.length;
   const prevN = Math.max(1, Math.min(n, 3));
-  const prevHalf = (prevN / 2) * BEAD.length;
-  const w = Math.max(half * 2 + 56, 70);
-  const py = -11;
+  const prevHalf = fromRing ? 2.5 : (prevN / 2) * BEAD.length;
+  const w = Math.max(half * 2 + 64, 80);
+  const py = -12;
   return (
-    <svg viewBox={`${-w / 2} -22 ${w} ${belly ? 44 : 36}`} role="img" aria-label="How to weave this row">
+    <svg viewBox={`${-w / 2} -22 ${w} ${belly ? 46 : 36}`} role="img" aria-label="How to weave this row">
       <defs>
         <Arrow id="ah-p" color={PINK} />
         <Arrow id="ah-b" color={BLUE} />
       </defs>
-      {Array.from({ length: prevN }, (_, i) => (
-        <Bead key={`p${i}`} x={rowX(prevN, i)} y={py} angle={0} color={GREY} dim />
-      ))}
+      {fromRing ? (
+        <circle cx="0" cy={py - 3} r="5" fill="none" stroke="#9aa3ad" stroke-width="1.6" />
+      ) : (
+        Array.from({ length: prevN }, (_, i) => <Bead key={`p${i}`} x={rowX(prevN, i)} y={py} angle={0} color={GREY} dim />)
+      )}
       <text x={-w / 2 + 2} y={py + 1.3} font-size="3.4" fill="#9a8aa6">
-        last row
+        {fromRing ? 'key ring' : 'last row'}
       </text>
       {/* left cord: comes from the last row, goes through the new beads, exits right */}
       <path d={`M${-prevHalf} ${py} C ${-half - 10} ${py}, ${-half - 10} -1, ${-half} -1 L ${half + 15} -1`} fill="none" stroke={PINK} stroke-width="1.2" marker-end="url(#ah-p)" />
@@ -57,8 +59,8 @@ function CrossRow({ beads, belly }: { beads: ColorId[]; belly: boolean }) {
       {beads.map((c, i) => (
         <Bead key={i} x={rowX(n, i)} y={0} angle={0} color={c} />
       ))}
-      <Label x={-half - 10} y={-6} text="1 string" color={PINK} />
-      <Label x={half + 10} y={7.5} text="2 push" color={BLUE} />
+      <Label x={-half - 19} y={5.5} text="1 string" color={PINK} />
+      <Label x={half + 18} y={5.5} text="2 push" color={BLUE} />
       {belly && (
         <g>
           <path d={`M0 7 C 10 16, -10 18, 0 ${py + 25}`} fill="none" stroke="#7a5c99" stroke-width="1" stroke-dasharray="1.6 1.2" marker-end="url(#ah-p)" />
@@ -96,10 +98,10 @@ function LegHow({ side, stem, toes }: { side: 'L' | 'R'; stem: ColorId[]; toes: 
   const x0 = dir * 9;
   const placed = legBeads({ stem, toes }, side, x0, 0, 0);
   const far = Math.max(...placed.map((p) => Math.abs(p.x))) + 8;
-  const w = far * 2 + 6;
+  const w = Math.max(far * 2 + 6, 70);
   const stemEnd = x0 + dir * stem.length * BEAD.length;
   return (
-    <svg viewBox={`${-w / 2} -15 ${w} 30`} role="img" aria-label="How to make this leg">
+    <svg viewBox={`${-w / 2} -18 ${w} 36`} role="img" aria-label="How to make this leg">
       <defs>
         <Arrow id="ah-l" color={PINK} />
         <Arrow id="ah-l2" color="#7a5c99" />
@@ -112,8 +114,8 @@ function LegHow({ side, stem, toes }: { side: 'L' | 'R'; stem: ColorId[]; toes: 
       {placed.map((p, i) => (
         <Bead key={i} x={p.x} y={p.y} angle={p.angle} color={p.color} glow={p.part === 'stem'} />
       ))}
-      <Label x={(x0 + stemEnd) / 2} y={-9} text="1 string all" color={PINK} />
-      <Label x={(x0 + stemEnd) / 2} y={10} text={`2 back through ${stem.length}`} color="#7a5c99" />
+      <Label x={dir * 14} y={-12.5} text="1 string all" color={PINK} />
+      <Label x={dir * 14} y={12.5} text={`2 back through ${stem.length}`} color="#7a5c99" />
     </svg>
   );
 }
@@ -194,7 +196,7 @@ function TapeHow() {
 export function HowTo({ step }: { step: Step }) {
   switch (step.t) {
     case 'row':
-      return step.mode === 'center' ? <CenterRow beads={step.beads} /> : <CrossRow beads={step.beads} belly={step.belly} />;
+      return step.mode === 'center' ? <CenterRow beads={step.beads} /> : <CrossRow beads={step.beads} belly={step.belly} fromRing={step.row === 1} />;
     case 'leg':
       return <LegHow side={step.side} stem={step.stem} toes={step.toes} />;
     case 'keyring':

@@ -18,7 +18,7 @@ self.addEventListener('install', (event) => {
       const cache = await caches.open(CACHE);
       await Promise.all(
         PRECACHE.map(async (url) => {
-          if (await cache.match(url)) return;
+          if (await cache.match(url, MATCH)) return;
           const res = await fetch(new Request(url, { cache: 'reload' }));
           if (!res.ok) throw new Error(`precache failed: ${url} ${res.status}`);
           await cache.put(url, await cleanResponse(res));
@@ -47,9 +47,13 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Scripts and styles are requested in CORS mode (with an Origin header). Servers may answer
+// with `Vary: Origin`, which would stop a cached copy from matching, so Vary is ignored.
+const MATCH = { ignoreSearch: true, ignoreVary: true };
+
 async function fromCache(request) {
   const cache = await caches.open(CACHE);
-  return (await cache.match(request, { ignoreSearch: true })) || (await caches.match(request, { ignoreSearch: true }));
+  return (await cache.match(request, MATCH)) || (await caches.match(request, MATCH));
 }
 
 self.addEventListener('fetch', (event) => {
@@ -62,7 +66,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       (async () => {
         const cache = await caches.open(CACHE);
-        return (await cache.match('/')) || (await caches.match('/')) || fetch(req);
+        return (await cache.match('/', MATCH)) || (await caches.match('/', MATCH)) || fetch(req);
       })(),
     );
     return;
@@ -82,7 +86,7 @@ self.addEventListener('message', (event) => {
     (async () => {
       const cache = await caches.open(CACHE);
       let cached = 0;
-      for (const url of PRECACHE) if (await cache.match(url)) cached++;
+      for (const url of PRECACHE) if (await cache.match(url, MATCH)) cached++;
       const msg = { type: 'status', cached, total: PRECACHE.length, version: VERSION };
       if (event.source) event.source.postMessage(msg);
     })(),

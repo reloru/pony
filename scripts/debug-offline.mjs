@@ -1,0 +1,20 @@
+// Dev helper: load once online, wait for precache, go offline, reload, report what happened.
+import { chromium } from 'playwright';
+const base = process.argv[2];
+const b = await chromium.launch();
+const ctx = await b.newContext({ viewport: { width: 430, height: 932 } });
+const p = await ctx.newPage();
+p.on('pageerror', (e) => console.log('PAGEERROR', e.message));
+p.on('console', (m) => console.log('CONSOLE', m.type(), m.text()));
+p.on('requestfailed', (r) => console.log('REQFAIL', r.url(), r.failure()?.errorText));
+await p.goto(base + '/#/');
+await p.getByText('Ready to use offline').waitFor({ timeout: 45000 });
+console.log('ready; controller:', await p.evaluate(() => !!navigator.serviceWorker.controller));
+const keys = await p.evaluate(async () => { const out = {}; for (const k of await caches.keys()) { const c = await caches.open(k); out[k] = (await c.keys()).map(r => new URL(r.url).pathname); } return out; });
+console.log(JSON.stringify(keys).slice(0, 600));
+await ctx.setOffline(true);
+await p.reload().catch((e) => console.log('RELOAD ERR', e.message));
+await p.waitForTimeout(3000);
+console.log('after reload kinds:', await p.locator('[data-kind]').count(), 'title:', await p.title());
+console.log((await p.content()).slice(0, 300));
+await b.close();

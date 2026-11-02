@@ -14,6 +14,7 @@ export function View3D({ design }: { design: Design }) {
   latest.current = design;
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [drawn, setDrawn] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -21,7 +22,12 @@ export function View3D({ design }: { design: Design }) {
       .then(({ createViewer }) => {
         if (cancelled || !box.current) return;
         try {
-          viewer.current = createViewer(box.current, latest.current, () => setFailed(true));
+          viewer.current = createViewer(
+            box.current,
+            latest.current,
+            () => setFailed(true),
+            () => setDrawn(true),
+          );
           setLoading(false);
         } catch {
           setFailed(true);
@@ -40,7 +46,7 @@ export function View3D({ design }: { design: Design }) {
   }, [design]);
 
   return (
-    <div class="view3d" ref={box} data-testid="view3d" data-state={failed ? 'fallback' : loading ? 'loading' : 'ready'}>
+    <div class="view3d" ref={box} data-testid="view3d" data-state={failed ? 'fallback' : loading ? 'loading' : drawn ? 'drawn' : 'ready'}>
       {failed && (
         <div class="fallback">
           <DesignView design={design} />
