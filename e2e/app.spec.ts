@@ -1,5 +1,8 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+import { createServer, type Server } from 'node:http';
+import type { Socket } from 'node:net';
+import { extname, join, normalize } from 'node:path';
 
 const BASE = 'http://localhost:4173';
 
@@ -230,6 +233,10 @@ test('backup download and restore into a fresh device', async ({ page, browser }
 });
 
 test('works fully offline after the first visit', async ({ page, context }) => {
+  // In Playwright's Linux WebKit, reloading under context.setOffline() fails with "WebKit encountered
+  // an internal error" before the service worker answers. WebKit's offline behaviour is covered by
+  // "keeps working after the server is gone entirely", which switches the real server off instead.
+  test.skip(test.info().project.name.includes('webkit'), 'Playwright WebKit offline emulation; see the server-gone test');
   const offsite = guardNetwork(context);
   const errors = trackErrors(page);
   await page.goto('/#/');
@@ -280,4 +287,80 @@ test('manifest and icons are installable', async ({ request }) => {
   const sw = await (await request.get('/sw.js')).text();
   expect(sw).toContain('"/assets/');
   expect(sw).not.toContain('__PRECACHE__');
+});
+
+
+/** A throwaway static server for dist/, so a test can switch the whole server off. */
+function startStaticServer(port: number): Promise<{ stop: () => Promise<void> }> {
+  const root = join(process.cwd(), 'dist');
+  const types: Record<string, string> = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'text/javascript',
+    '.css': 'text/css',
+    '.json': 'application/json',
+    '.webmanifest': 'application/manifest+json',
+    '.png': 'image/png',
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+  };
+  const sockets = new Set<Socket>();
+  const server: Server = createServer((req, res) => {
+    const path = normalize(decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname));
+    const file = join(root, path === '/' ? 'index.html' : path);
+    if (!file.startsWith(root) || !existsSync(file) || path.includes('..')) {
+      res.writeHead(404).end();
+      return;
+    }
+    // Like many servers (and vite preview), vary on Origin: the service worker must cope.
+    res.writeHead(200, { 'Content-Type': types[extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-cache', Vary: 'Origin' });
+    res.end(readFileSync(file));
+  });
+  server.on('connection', (s) => {
+    sockets.add(s);
+    s.on('close', () => sockets.delete(s));
+  });
+  return new Promise((resolve) =>
+    server.listen(port, '127.0.0.1', () =>
+      resolve({
+        stop: () =>
+          new Promise<void>((done) => {
+            server.close(() => done());
+            sockets.forEach((s) => s.destroy());
+          }),
+      }),
+    ),
+  );
+}
+
+test('keeps working after the server is gone entirely', async ({ browser }, info) => {
+  const port = 4300 + info.workerIndex * 10 + (info.retry % 10);
+  const srv = await startStaticServer(port);
+  const base = `http://127.0.0.1:${port}`;
+  const ctx = await browser.newContext({ viewport: info.project.use.viewport ?? undefined });
+  const page = await ctx.newPage();
+  const errors = trackErrors(page);
+  try {
+    await page.goto(base + '/#/');
+    await expect(page.getByText('Ready to use offline')).toBeVisible({ timeout: 60_000 });
+    await srv.stop();
+    // The server is closed: anything that loads now came from the service worker's cache.
+    await page.reload();
+    await expect(page.locator('[data-kind]')).toHaveCount(4);
+    await page.click('[data-kind="flat"]');
+    await page.click('[data-testid="idea-f-heart"]');
+    await expect(page.getByTestId('edit-canvas')).toBeVisible();
+    await page.click('[data-testid="make-it"]');
+    await expect(page.getByTestId('gather')).toBeVisible();
+    await page.goto(base + '/#/beads');
+    await expect(page.locator('.own')).toHaveCount(89);
+    const fontsOk = await page.evaluate(async () => {
+      await document.fonts.ready;
+      return document.fonts.check('600 20px Fredoka');
+    });
+    expect(fontsOk).toBe(true);
+    expect(errors.filter((e) => !/Failed to load resource|ERR_CONNECTION_REFUSED|Could not connect/i.test(e))).toEqual([]);
+  } finally {
+    await srv.stop().catch(() => undefined);
+    await ctx.close();
+  }
 });
