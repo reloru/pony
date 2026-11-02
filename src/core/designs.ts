@@ -79,18 +79,14 @@ const bracelets: BraceletDesign[] = [
 // Flat shapes (two-cord ladder weave)
 
 const flats: FlatDesign[] = [
-  flat('f-heart', 'Sweet Heart', { h: 's-hot-pink', r: 's-raspberry', w: 's-white', l: 's-light-pink' }, [
-    'rhhr',
-    'rhwhhr',
-    'rhwlhhr',
-    'rhlhhhhr',
-    'rhhhhhhr',
+  flat('f-heart', 'Sweet Heart', { h: 's-hot-pink', r: 's-raspberry', w: 's-white', c: 't-clear' }, [
+    'rhccchr',
+    'rhwhchhhr',
+    'rhwhhhhhr',
+    'rhhhhhhhr',
     'rhhhhhr',
-    'rhhhhr',
     'rhhhr',
-    'rhhr',
     'rhr',
-    'rr',
     'r',
   ]),
   flat('f-icecream', 'Ice Cream Day', { c: 's-red', p: 's-pink', l: 's-light-pink', a: 's-sky-blue', y: 's-neon-yellow', g: 's-neon-green', t: 's-tan', m: 's-mustard' }, [
@@ -148,14 +144,14 @@ const flats: FlatDesign[] = [
     'Kitty Pal',
     { g: 's-gray', d: 's-dark-gray', e: 's-spring-green', p: 's-pink', w: 's-white' },
     ['ggdgg', 'gdgggdg', 'gegggeg', 'ggggggg', 'gggpggg', 'ggwwwgg', 'gwwwwg', 'ggggg'],
-    { 1: { both: ['g', 'p'] }, 5: { both: ['ww', 'w'] } },
+    { 1: { both: ['g', 'p'] }, 5: { both: ['w', 'w'] } },
   ),
   flat(
-    'f-clownfish',
-    'Clowny Fish',
-    { o: 's-orange', w: 's-white', k: 's-black' },
-    ['o', 'ooo', 'okoko', 'kwwwk', 'wwwww', 'ooooo', 'ooooo', 'kwwwk', 'owwwo', 'ooo', 'o', 'ooo', 'koook'],
-    { 6: { both: ['o', 'k'] } },
+    'f-ghost',
+    'Boo',
+    { w: 'p-white', k: 's-black', p: 's-pink' },
+    ['www', 'wwwww', 'wwwwwww', 'wkwwwkw', 'wpwwwpw', 'wwwkwww', 'wwwwwww', 'wwwwwww', 'wwwwwww'],
+    { 5: { both: ['w', 'w'] }, 9: { both: ['w', 'w'] } },
   ),
   flat(
     'f-butterfly',
@@ -164,13 +160,20 @@ const flats: FlatDesign[] = [
     ['kk', 'oolkloo', 'otllkllto', 'ottpkptto', 'ootlkltoo', 'oolkloo', 'oko', 'ppykypp', 'pptktpp', 'ppkpp', 'pkp'],
     { 1: { both: ['kk', 'y'] } },
   ),
-  flat(
-    'f-rocket',
-    'Zoom Rocket',
-    { r: 's-red', w: 's-white', b: 's-sky-blue', n: 's-navy', o: 's-orange', y: 's-yellow' },
-    ['r', 'rrr', 'www', 'wbw', 'wnw', 'www', 'rwr', 'rrwrr', 'rrrrr'],
-    { 9: { both: ['oo', 'y'] } },
-  ),
+  flat('f-rocket', 'Zoom Rocket', { r: 's-red', w: 's-white', b: 's-sky-blue', o: 's-orange', y: 's-yellow' }, [
+    'r',
+    'rrr',
+    'www',
+    'wbw',
+    'www',
+    'www',
+    'rwr',
+    'rrwrr',
+    'rrrrr',
+    'ooo',
+    'yoy',
+    'y',
+  ]),
   flat('f-watermelon', 'Melon Slice', { g: 's-green', l: 's-pale-green', r: 's-raspberry', k: 's-black' }, [
     'ggggggg',
     'lllllll',
