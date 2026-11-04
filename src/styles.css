@@ -1080,3 +1080,13 @@ svg {
     height: 48px;
   }
 }
+
+@media (max-width: 420px) {
+  .hero-actions .btn .lbl {
+    display: none;
+  }
+  .hero-actions .btn.pink {
+    width: var(--tap);
+    padding: 0;
+  }
+}

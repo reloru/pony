@@ -47,7 +47,7 @@ The tests (`tests/core.test.ts`) check that for **every starter, every name-keyc
 ## Install on a device
 
 - **iPhone:** open the live link in Safari → Share → **Add to Home Screen**. Open it once from the icon while online and wait for “✓ Ready to use offline” on the home screen. A home-screen app keeps its own saved data, separate from Safari.
-- **Fire HD (Chrome):** open the link in Chrome → ⋮ menu → **Add to Home screen** / **Install app**. The app doesn't depend on Chrome's automatic install prompt.
+- **Fire HD (Chrome):** open the link in Chrome. Chrome offers to install it with its own prompt, and the app's home screen shows an **Install** button whenever Chrome says it can be installed. If neither appears: ⋮ menu → **Install app** / **Add to Home screen**.
 
 The **Grown-ups** screen (gear icon) has backup, restore, offline status and these instructions.
 

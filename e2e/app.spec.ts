@@ -437,3 +437,31 @@ test('name keychain: type a name, pick colors, make it', async ({ page }) => {
   const kinds = await followAllSteps(page);
   expect(kinds.has('keyring')).toBe(true);
 });
+
+test('Chrome install prompt: not suppressed, and the Install buttons open it', async ({ page }) => {
+  await page.goto('/#/');
+  await expect(page.locator('[data-kind]')).toHaveCount(5);
+  await expect(page.getByTestId('install')).toHaveCount(0);
+  // Simulate Chrome deciding the app is installable (what Chrome on the Fire tablet does).
+  const prevented = await page.evaluate(() => {
+    const e = new Event('beforeinstallprompt', { cancelable: true }) as Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
+    (window as unknown as { __prompted: number }).__prompted = 0;
+    e.prompt = async () => {
+      (window as unknown as { __prompted: number }).__prompted++;
+    };
+    e.userChoice = Promise.resolve({ outcome: 'accepted' });
+    window.dispatchEvent(e);
+    return e.defaultPrevented;
+  });
+  expect(prevented, "the app must let Chrome show its own install prompt").toBe(false);
+  await page.goto('/#/grownups');
+  await expect(page.getByTestId('install-grownups')).toBeVisible();
+  await page.goto('/#/');
+  const btn = page.getByTestId('install');
+  await expect(btn).toBeVisible();
+  await noHorizontalScroll(page);
+  await btn.click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __prompted: number }).__prompted)).toBe(1);
+  // accepted: the button goes away
+  await expect(btn).toHaveCount(0);
+});
