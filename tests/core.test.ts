@@ -8,6 +8,7 @@ import type { ColorId, CritterDesign, CuffDesign, Design, FlatDesign, Leg, Peyot
 import { validate } from '../src/core/validate';
 import { peyoteChart, peyoteStrip, weaveLayout } from '../src/core/geometry';
 import { ringBeads, roundColumns } from '../src/core/peyote';
+import { GLYPHS, MAX_LETTERS, cleanName, nameKeychain } from '../src/core/letters';
 import { layout3d } from '../src/core/layout3d';
 
 /** Deterministic PRNG so failures are reproducible. */
@@ -408,5 +409,29 @@ describe('peyote', () => {
     d.rows[2][0] = 'star-red';
     expect(validate(d).join()).toMatch(/star/);
     expect(E.paint(cuff, { t: 'row', row: 2, i: 0 }, 'star-red', false).rows[2][0]).toBe(cuff.rows[2][0]);
+  });
+});
+
+describe('name keychains', () => {
+  const meta = { id: 'n', createdAt: 0, updatedAt: 0 };
+  it('every letter is 5 × 5', () => {
+    expect(Object.keys(GLYPHS)).toHaveLength(27);
+    for (const [ch, g] of Object.entries(GLYPHS)) {
+      expect(g, ch).toHaveLength(5);
+      for (const line of g) expect(line, ch).toMatch(/^[#.]{5}$/);
+    }
+  });
+  it('every letter, and some names, make a buildable keychain whose steps match', () => {
+    for (const ch of Object.keys(GLYPHS)) assertInstructionsMatch(nameKeychain(ch, 's-hot-pink', 's-white', meta)!);
+    for (const name of ['MIA', 'ZOE', 'A♥B', 'AVA♥']) assertInstructionsMatch(nameKeychain(name, 's-navy', 'p-white', meta)!);
+  });
+  it('keeps letters only, capitals, at most four, and fits the row limit', () => {
+    expect(cleanName('olivia!')).toBe('OLIV');
+    expect(cleanName('a b-c')).toBe('ABC');
+    expect(nameKeychain('', 's-red', 's-white', meta)).toBeNull();
+    const d = nameKeychain('WWWW', 's-red', 's-white', meta)!;
+    expect(d.rows).toHaveLength(1 + 5 * MAX_LETTERS + (MAX_LETTERS - 1) + 1);
+    expect(d.keyring).toBe(true);
+    expect(d.rows.every((r) => r.beads.length === 7)).toBe(true);
   });
 });

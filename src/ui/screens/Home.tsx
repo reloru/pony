@@ -6,7 +6,7 @@ import { DesignView } from '../DesignView';
 import { KIND_INFO, KINDS } from '../kinds';
 import { useOfflineStatus } from '../../app/offline';
 
-const HERO: Record<string, string> = { bracelet: 'b-rainbow', flat: 'f-butterfly', cuff: 'c-hearts', critter: 'k-bee' };
+const HERO: Record<string, string> = { bracelet: 'b-rainbow', flat: 'f-butterfly', cuff: 'c-hearts', peyote: 'y-hearts', critter: 'k-bee' };
 
 export function Home() {
   const s = useStore();

@@ -67,10 +67,10 @@ test('home and galleries fit the screen with big buttons', async ({ page, contex
   const offsite = guardNetwork(context);
   const errors = trackErrors(page);
   await page.goto('/#/');
-  await expect(page.locator('[data-kind]')).toHaveCount(4);
+  await expect(page.locator('[data-kind]')).toHaveCount(5);
   await noHorizontalScroll(page);
   await bigTargets(page, '.kind-tile, .wide-tile, .btn');
-  for (const kind of ['bracelet', 'flat', 'cuff', 'critter']) {
+  for (const kind of ['bracelet', 'flat', 'cuff', 'peyote', 'critter']) {
     await page.goto(`/#/k/${kind}`);
     await expect(page.locator('[data-testid^="idea-"]').first()).toBeVisible();
     await noHorizontalScroll(page);
@@ -243,7 +243,7 @@ test('works fully offline after the first visit', async ({ page, context }) => {
   await expect(page.getByText('Ready to use offline')).toBeVisible({ timeout: 45_000 });
   await context.setOffline(true);
   await page.reload();
-  await expect(page.locator('[data-kind]')).toHaveCount(4);
+  await expect(page.locator('[data-kind]')).toHaveCount(5);
   // every screen, including the separately loaded 3D viewer, must load from the device
   await page.click('[data-kind="critter"]');
   await page.click('[data-testid="idea-k-ladybug"]');
@@ -345,7 +345,7 @@ test('keeps working after the server is gone entirely', async ({ browser }, info
     await srv.stop();
     // The server is closed: anything that loads now came from the service worker's cache.
     await page.reload();
-    await expect(page.locator('[data-kind]')).toHaveCount(4);
+    await expect(page.locator('[data-kind]')).toHaveCount(5);
     await page.click('[data-kind="flat"]');
     await page.click('[data-testid="idea-f-heart"]');
     await expect(page.getByTestId('edit-canvas')).toBeVisible();
@@ -363,4 +363,77 @@ test('keeps working after the server is gone entirely', async ({ browser }, info
     await srv.stop().catch(() => undefined);
     await ctx.close();
   }
+});
+
+
+/** Read the bead list, then add up every bead shown in the steps; they must match exactly. */
+async function followAllSteps(page: Page) {
+  await expect(page.getByTestId('gather')).toBeVisible();
+  const listed: Record<string, number> = {};
+  for (const el of await page.locator('[data-testid="gather"] .gather-item').all()) {
+    listed[(await el.getAttribute('data-color'))!] = Number(await el.getAttribute('data-count'));
+  }
+  const strung: Record<string, number> = {};
+  const kinds = new Set<string>();
+  let guard = 0;
+  while ((await page.getByTestId('step-card').getAttribute('data-step')) !== 'done' && guard++ < 200) {
+    await page.click('[data-testid="next"]');
+    kinds.add((await page.getByTestId('step-card').getAttribute('data-step'))!);
+    for (const chip of await page.locator('[data-testid="bead-seq"] .chip').all()) {
+      const c = (await chip.getAttribute('data-color'))!;
+      strung[c] = (strung[c] ?? 0) + Number(await chip.getAttribute('data-count'));
+    }
+  }
+  await expect(page.getByText('You made it!')).toBeVisible();
+  expect(strung).toEqual(listed);
+  return kinds;
+}
+
+test('peyote cuff: ring, rounds with a marked first bead, step-ups, and exact bead totals', async ({ page, context }) => {
+  const offsite = guardNetwork(context);
+  const errors = trackErrors(page);
+  await openStarter(page, 'peyote', 'y-hearts');
+  await noHorizontalScroll(page);
+  await bigTargets(page, '.editor .btn, .tool, .swatch');
+  await page.click('[data-testid="make-it"]');
+  const kinds = await followAllSteps(page);
+  expect([...kinds]).toEqual(expect.arrayContaining(['cut', 'ring', 'tiering', 'round', 'stepup', 'tie', 'done']));
+  expect(offsite).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('peyote editor: size controls, mirror across a column, and the round-1 marker', async ({ page }) => {
+  await openStarter(page, 'peyote', 'y-rainbow');
+  await page.getByTestId('size-around').getByLabel('More around').click();
+  await expect(page.getByTestId('size-around')).toContainText('30');
+  await page.getByTestId('size-rows').getByLabel('Less rows').click();
+  await expect(page.getByTestId('size-rows')).toContainText('11');
+  await page.click('[data-tool="mirror"]');
+  await expect(page.locator('[data-mirror-axis]')).toHaveCount(1);
+  await page.click('[data-color="s-black"]');
+  const beads = page.locator('[data-testid="edit-canvas"] > g[opacity]');
+  await beads.nth(40).click();
+  await expect(page.locator('[data-testid="edit-canvas"] rect[fill="#1A1A1A"]')).toHaveCount(2);
+  await page.click('[data-testid="make-it"]');
+  // gather, cut, ring chunks (30 beads -> 5), tie ring, then round 1
+  for (let i = 0; i < 8; i++) await page.click('[data-testid="next"]');
+  await expect(page.getByTestId('step-card')).toHaveAttribute('data-step', 'round');
+  await expect(page.locator('[data-start-marker]')).toHaveCount(1);
+});
+
+test('name keychain: type a name, pick colors, make it', async ({ page }) => {
+  await page.goto('/#/k/flat');
+  await page.getByTestId('name-keychain').click();
+  await page.getByTestId('name-input').fill('zoe!');
+  await expect(page.getByTestId('name-input')).toHaveValue('ZOE');
+  await page.locator('.sheet [aria-label="Add a heart"]').click();
+  await expect(page.getByTestId('name-input')).toHaveValue('ZOE♥');
+  await page.locator('.sheet [aria-label="Letters s-purple"]').click();
+  await expect(page.getByTestId('name-preview')).toBeVisible();
+  await page.getByTestId('name-make').click();
+  await expect(page.getByTestId('edit-canvas')).toBeVisible();
+  await expect(page.locator('.name-btn')).toHaveText('ZOE♥');
+  await page.click('[data-testid="make-it"]');
+  const kinds = await followAllSteps(page);
+  expect(kinds.has('keyring')).toBe(true);
 });

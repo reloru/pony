@@ -95,7 +95,54 @@ export function describe(s: Step, opts: { firstCrossRow: boolean; keyring: boole
         text: 'Bend the band into a circle so Row 1 meets the last row. Push the **left** cord through **Row 1**, left to right. Pull until the band closes.',
         tip: 'Now both cords are on the same side.',
       };
+    case 'ring': {
+      const end = s.from + s.beads.length;
+      return {
+        title: `Start ring · ${s.from + 1}–${end}`,
+        text: `String ${s.beads.length === 1 ? 'this bead' : 'these beads'} in order.${s.from === 0 ? ' Leave a short tail (a hand length) at the start.' : ''}`,
+        tip: end === s.total ? `That's all ${s.total} ring beads. Don't tie yet. Next step!` : s.from === 0 ? 'Don’t tie anything yet.' : undefined,
+      };
+    }
+    case 'tiering':
+      return {
+        title: 'Tie the ring',
+        text: `Tie the two ends together into a ring with a **double knot**. Keep the **long end** for weaving; trim the short end.`,
+        tip: `The ring has ${s.total} beads. After the next round, every other ring bead will stick up.`,
+      };
+    case 'round': {
+      const end = s.from + s.beads.length;
+      const part = s.perRound > s.beads.length ? ` · beads ${s.from + 1}–${end}` : '';
+      if (s.round === 1 && s.from === 0)
+        return {
+          title: `Round 1${part}`,
+          text: 'Start at the knot, going the same way you strung the ring. For each bead: **add it, skip the next ring bead, go through the one after**. Pull snug.',
+          tip: 'The first bead sits right after the knot (marked 1 on the map).',
+        };
+      if (s.from === 0)
+        return {
+          title: `Round ${s.round}${part}`,
+          text: 'For each bead: **add it into the next gap, then go through the next bead that sticks up**. Pull snug.',
+          tip: 'The first bead goes in the gap right after the bead you just stepped up through (marked 1 on the map).',
+        };
+      return {
+        title: `Round ${s.round}${part}`,
+        text: 'Keep going: **add a bead into the next gap, go through the next bead that sticks up**.',
+        tip: end === s.perRound ? `That's all ${s.perRound} beads of round ${s.round}!` : undefined,
+      };
+    }
+    case 'stepup':
+      return {
+        title: 'Step up',
+        text: `Go through the **first bead you added in round ${s.round}** (marked 1 on the map). Now you're ready for the next round.`,
+        tip: 'This is the “step up”. Do it at the end of every round.',
+      };
     case 'tie':
+      if (s.style === 'peyote')
+        return {
+          title: 'Tie it off',
+          text: 'Tie the long end in a **double knot** around the cord between two beads. Push the end through a few beads, then trim it.',
+          tip: 'Put it on only once it’s finished, so the knots stay tight.',
+        };
       if (s.style === 'bracelet')
         return {
           title: 'Tie it',

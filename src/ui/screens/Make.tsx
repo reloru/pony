@@ -5,6 +5,7 @@ import { go } from '../../app/router';
 import { patchDesign, useStore } from '../../app/store';
 import { color as colorOf, longName } from '../../core/colors';
 import type { BeadRef } from '../../core/geometry';
+import { around, kOf, roundColumns } from '../../core/peyote';
 import { beadCounts, cordFor, stepBeads, steps as makeSteps, totalBeads, usesKeyring, type Step } from '../../core/steps';
 import type { Design } from '../../core/types';
 import { Swatch } from '../Bead';
@@ -34,8 +35,25 @@ function stepRefs(design: Design, s: Step): BeadRef[] {
       ...s.toes.map((_, i) => ({ t: 'leg' as const, row: s.row - 1, side: s.side, part: 'toes' as const, i })),
     ];
   if (s.t === 'string') return s.beads.map((_, i) => ({ t: 'ring', i: s.from + i }));
-  void design;
+  if (s.t === 'ring')
+    return s.beads.map((_, i) => {
+      const c = s.from + i;
+      return { t: 'row' as const, row: c % 2, i: kOf(c % 2, c) };
+    });
+  if (s.t === 'round' && design.kind === 'peyote') {
+    const row = s.round + 1;
+    return roundColumns(row, around(design))
+      .slice(s.from, s.from + s.beads.length)
+      .map((c) => ({ t: 'row' as const, row, i: kOf(row, c) }));
+  }
   return [];
+}
+
+/** Peyote: the first bead of the round a step belongs to, marked "1" on the map. */
+function roundStart(design: Design, s: Step): BeadRef | null {
+  if (design.kind !== 'peyote' || (s.t !== 'round' && s.t !== 'stepup')) return null;
+  const row = s.round + 1;
+  return { t: 'row', row, i: kOf(row, roundColumns(row, around(design))[0]) };
 }
 const key = (r: BeadRef) => JSON.stringify(r);
 
@@ -75,26 +93,29 @@ function MakeInner({ design }: { design: Design }) {
     return { done, now };
   }, [steps, page, design]);
 
-  useEffect(() => {
-    patchDesign(design.id, page === last ? { buildStep: page, madeAt: design.madeAt ?? Date.now() } : { buildStep: page });
-    if (page === last) fanfare();
-    return () => stopSpeaking();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  useEffect(() => () => stopSpeaking(), []);
 
+  // Progress is saved right in the tap handler (not in an effect after the screen updates), so
+  // leaving the screen straight away can never lose the step or the "made it" badge.
   const goTo = (p: number) => {
     stopSpeaking();
-    setPage(Math.max(0, Math.min(last, p)));
-    if (p > page) pop();
+    const next = Math.max(0, Math.min(last, p));
+    setPage(next);
+    patchDesign(design.id, next === last ? { buildStep: next, madeAt: design.madeAt ?? Date.now() } : { buildStep: next });
+    if (next === last && page !== last) fanfare();
+    else if (p > page) pop();
   };
 
   const step = page >= 1 && page <= steps.length ? steps[page - 1] : null;
   const text: StepText | null = step ? describe(step, { firstCrossRow: page - 1 === firstCross, keyring: usesKeyring(design) }) : null;
   const beads = step ? stepBeads(step) : [];
-  const showMap = step && (step.t === 'row' || step.t === 'leg' || step.t === 'string');
+  const showMap = step && (step.t === 'row' || step.t === 'leg' || step.t === 'string' || step.t === 'ring' || step.t === 'round' || step.t === 'stepup');
+  const startRef = step ? roundStart(design, step) : null;
+  const startKey = startRef ? key(startRef) : null;
 
   const highlight = (r: BeadRef) => {
     const k = key(r);
+    if (k === startKey) return 'start' as const;
     if (status.now.has(k)) return 'on' as const;
     if (status.done.has(k)) return undefined;
     return 'dim' as const;

@@ -193,6 +193,114 @@ function TapeHow() {
   );
 }
 
+/** Peyote ring: beads on the cord, short tail at the start, not tied yet. */
+function RingHow({ beads }: { beads: ColorId[] }) {
+  const n = beads.length;
+  const w = n * BEAD.length + 60;
+  const x0 = -w / 2 + 22;
+  return (
+    <svg viewBox={`${-w / 2} -12 ${w} 24`} role="img" aria-label="String the ring beads in order">
+      <defs>
+        <Arrow id="ah-r" color={PINK} />
+      </defs>
+      <path d={`M${-w / 2 + 2} 0 L ${w / 2 - 8} 0`} stroke={PINK} stroke-width="1.2" marker-end="url(#ah-r)" />
+      {beads.map((c, i) => (
+        <Bead key={i} x={x0 + (i + 0.5) * BEAD.length} y={0} angle={0} color={c} />
+      ))}
+      <text x={-w / 2 + 2} y={9} font-size="3.4" fill="#9a8aa6">
+        short tail
+      </text>
+      <text x={w / 2 - 22} y={9} font-size="3.4" fill="#9a8aa6">
+        long end
+      </text>
+    </svg>
+  );
+}
+
+/** Tie the ring into a circle; the long end keeps going. */
+function TieRingHow() {
+  const n = 14;
+  return (
+    <svg viewBox="-30 -27 60 52" role="img" aria-label="Tie the ring closed with a double knot">
+      {Array.from({ length: n }, (_, i) => {
+        const a = -Math.PI / 2 + ((i + 0.5) * 2 * Math.PI) / n;
+        return <Bead key={i} x={18 * Math.cos(a)} y={18 * Math.sin(a)} angle={(a * 180) / Math.PI + 90} color={GREY} dim />;
+      })}
+      <circle cx="0" cy="-18" r="2.6" fill={PINK} />
+      <path d="M 1.5 -19.5 C 8 -27, 18 -26, 26 -24" fill="none" stroke={PINK} stroke-width="1.2" />
+      <text x="0" y="2" text-anchor="middle" font-size="4.2" fill="#7b6688" font-weight="700">
+        double knot
+      </text>
+      <text x="13" y="-21" font-size="3.4" fill="#7b6688">
+        long end
+      </text>
+    </svg>
+  );
+}
+
+/**
+ * The peyote move, seen from the side: raised beads alternate with gaps. Add a bead into the
+ * gap, then go through the next raised bead.
+ */
+function PeyoteRoundHow({ beads, firstOfRound }: { beads: ColorId[]; firstOfRound: boolean }) {
+  const L = BEAD.length;
+  const H = BEAD.diameter / 2;
+  // columns 0..6: raised beads (last round) at odd columns, low beads at even columns
+  const cols = [0, 1, 2, 3, 4, 5, 6];
+  const newColor = beads[0];
+  const next = beads[1] ?? beads[0];
+  return (
+    <svg viewBox="-8 -24 66 38" role="img" aria-label="Add a bead into the gap, then go through the next raised bead">
+      <defs>
+        <Arrow id="ah-y" color={PINK} />
+      </defs>
+      {cols.map((c) => (
+        <Bead key={c} x={c * L} y={c % 2 ? -H : 0} angle={0} color={GREY} dim={c % 2 === 0} />
+      ))}
+      {/* already added in this round */}
+      {!firstOfRound && <Bead x={0} y={-2 * H} angle={0} color={next} dim />}
+      {/* the new bead goes in the gap above column 2 */}
+      <Bead x={2 * L} y={-2 * H} angle={0} color={newColor} glow />
+      <path
+        d={`M ${1 * L - 3} ${-H - 1} L ${1 * L + 2.6} ${-H - 1} C ${1 * L + 3.5} ${-H - 3}, ${2 * L - 4} ${-2 * H}, ${2 * L - 3} ${-2 * H} L ${2 * L + 3} ${-2 * H} C ${2 * L + 4} ${-2 * H}, ${3 * L - 3.5} ${-H - 3}, ${3 * L - 2.6} ${-H - 1} L ${3 * L + 6} ${-H - 1}`}
+        fill="none"
+        stroke={PINK}
+        stroke-width="1"
+        marker-end="url(#ah-y)"
+      />
+      <Label x={2 * L} y={-19.5} text="1 add" color={PINK} />
+      <Label x={5.6 * L} y={-2 * H - 3} text="2 through" color="#7a5c99" />
+      <text x={-6} y={8.5} font-size="3.2" fill="#9a8aa6">
+        {firstOfRound ? 'ring: every other bead pops up' : 'gaps and raised beads'}
+      </text>
+    </svg>
+  );
+}
+
+/** Step up: through the first bead of the round you just finished. */
+function StepUpHow() {
+  const L = BEAD.length;
+  const H = BEAD.diameter / 2;
+  return (
+    <svg viewBox="-8 -22 58 32" role="img" aria-label="Step up through the first bead of the round">
+      <defs>
+        <Arrow id="ah-s" color="#7a5c99" />
+      </defs>
+      {[0, 1, 2, 3, 4, 5, 6].map((c) => (
+        <Bead key={c} x={c * L} y={c % 2 ? -H : -2 * H} angle={0} color={c % 2 ? GREY : 's-pale-pink'} dim={c % 2 === 1} />
+      ))}
+      <circle cx={2 * L} cy={-2 * H - 6.5} r="3" fill="#ffc93c" stroke="#7a4a00" stroke-width="0.5" />
+      <text x={2 * L} y={-2 * H - 5.3} text-anchor="middle" font-size="3.6" font-weight="700" fill="#3a2547">
+        1
+      </text>
+      <path d={`M ${0.6 * L} ${-H} C ${1.2 * L} ${-H}, ${1.4 * L} ${-2 * H}, ${2 * L - 3} ${-2 * H} L ${2 * L + 6} ${-2 * H}`} fill="none" stroke="#7a5c99" stroke-width="1.1" marker-end="url(#ah-s)" />
+      <text x={-6} y={6} font-size="3.2" fill="#9a8aa6">
+        up through bead 1
+      </text>
+    </svg>
+  );
+}
+
 export function HowTo({ step }: { step: Step }) {
   switch (step.t) {
     case 'row':
@@ -209,6 +317,14 @@ export function HowTo({ step }: { step: Step }) {
       return <CutHow inches={step.cord.inches} />;
     case 'tape':
       return <TapeHow />;
+    case 'ring':
+      return <RingHow beads={step.beads} />;
+    case 'tiering':
+      return <TieRingHow />;
+    case 'round':
+      return <PeyoteRoundHow beads={step.beads} firstOfRound={step.from === 0} />;
+    case 'stepup':
+      return <StepUpHow />;
     default:
       return null;
   }
