@@ -360,6 +360,30 @@ function SizeControls({ design, onChange }: { design: Design; onChange: (d: Desi
       />
     );
   }
+  if (design.kind === 'peyote') {
+    const n = design.rows[0].length * 2;
+    const R = design.rows.length;
+    return (
+      <>
+        <Stepper
+          testid="size-around"
+          label="around"
+          value={n}
+          sub={`around · ${inchesAround(n * BEAD.length)}″`}
+          onMinus={() => onChange(E.peyoteAround(design, -1))}
+          onPlus={() => onChange(E.peyoteAround(design, 1))}
+        />
+        <Stepper
+          testid="size-rows"
+          label="rows"
+          value={R}
+          sub={`rows · ${inchesAround(((R + 1) * BEAD.diameter) / 2)}″`}
+          onMinus={() => onChange(E.peyoteRows(design, R - 1))}
+          onPlus={() => onChange(E.peyoteRows(design, R + 1))}
+        />
+      </>
+    );
+  }
   if (design.kind === 'cuff') {
     const w = design.rows[0].length;
     const L = design.rows.length;

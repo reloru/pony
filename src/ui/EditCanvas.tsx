@@ -5,6 +5,7 @@ import { boundsOf, legBeads, legTilt, ROW_PITCH, type BeadRef, type Placed } fro
 import { BEAD, LIMITS, type Design, type Side, type WeaveDesign } from '../core/types';
 import { Bead } from './Bead';
 import { chartPlacements } from './DesignView';
+import { useUpright } from './useUpright';
 
 export type Tool = 'paint' | 'fill' | 'erase' | 'leg' | 'swap';
 
@@ -70,7 +71,8 @@ function pos(t: Target) {
 
 export function EditCanvas({ design, tool, mirror, color, onChange, onCancelStroke, onReject }: Props) {
   const svg = useRef<SVGSVGElement>(null);
-  const beads = useMemo(() => chartPlacements(design), [design]);
+  const upright = useUpright();
+  const beads = useMemo(() => chartPlacements(design, upright), [design, upright]);
   const targets = useMemo(() => targetsFor(design, tool, beads), [design, tool, beads]);
   const content = boundsOf(
     targets.map(pos),
@@ -293,6 +295,18 @@ export function EditCanvas({ design, tool, mirror, color, onChange, onCancelStro
       aria-label="Design canvas"
     >
       {critterBands}
+      {mirror && design.kind === 'peyote' && (
+        // Peyote mirrors across a column (the tube wraps round), shown as dashed lines.
+        <g data-mirror-axis="1">
+          {[0, design.rows[0].length].map((c) =>
+            upright ? (
+              <line key={c} y1={vy} y2={vy + vh} x1={c * BEAD.length} x2={c * BEAD.length} stroke="#12b5a3" stroke-width="0.6" stroke-dasharray="2 1.5" />
+            ) : (
+              <line key={c} x1={vx} x2={vx + vw} y1={c * BEAD.length} y2={c * BEAD.length} stroke="#12b5a3" stroke-width="0.6" stroke-dasharray="2 1.5" />
+            ),
+          )}
+        </g>
+      )}
       {design.kind === 'bracelet' && (
         <circle r={Math.max((design.beads.length * BEAD.length) / (2 * Math.PI), 12)} fill="none" stroke="#d9c6d3" stroke-width="0.7" stroke-dasharray="1.6 1.6" />
       )}

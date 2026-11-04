@@ -1,11 +1,15 @@
-import { boundsOf, legBeads, legTilt, ringLayout, ringRadius, rowBeadX, ROW_PITCH, weaveLayout, type BeadRef, type Placed } from '../core/geometry';
+import { boundsOf, legBeads, legTilt, peyoteChart, peyoteStrip, ringLayout, ringRadius, rowBeadX, ROW_PITCH, weaveLayout, type BeadRef, type Placed } from '../core/geometry';
 import { weaveRows } from '../core/steps';
 import { BEAD, type Design, type Leg, type Side, type WeaveRow } from '../core/types';
 import { Bead } from './Bead';
+import { useUpright } from './useUpright';
 
 /** Chart placement of every bead in build order (rows top to bottom, each row centered). */
-export function chartPlacements(d: Design): Placed[] {
+/** `upright`: draw cuffs the right way up (wide screens); otherwise sideways so they fit a phone. */
+export function chartPlacements(d: Design, upright = false): Placed[] {
   if (d.kind === 'bracelet') return ringLayout(d.beads);
+  if (d.kind === 'peyote') return upright ? peyoteStrip(d.rows) : peyoteChart(d.rows);
+  if (d.kind === 'cuff' && upright) return cuffStripPlacements(d.rows);
   return weaveLayout(weaveRows(d)!);
 }
 
@@ -45,10 +49,11 @@ export function cuffStripPlacements(rows: string[][]): Placed[] {
 export function previewPlacements(d: Design): Placed[] {
   if (d.kind === 'critter') return topViewPlacements(d.rows);
   if (d.kind === 'cuff') return cuffStripPlacements(d.rows);
+  if (d.kind === 'peyote') return peyoteStrip(d.rows);
   return chartPlacements(d);
 }
 
-export type Highlight = (ref: BeadRef) => 'on' | 'dim' | undefined;
+export type Highlight = (ref: BeadRef) => 'on' | 'dim' | 'start' | undefined;
 
 interface Props {
   design: Design;
@@ -60,7 +65,8 @@ interface Props {
 }
 
 export function DesignView({ design, mode = 'preview', highlight, class: cls, label }: Props) {
-  const beads = mode === 'preview' ? previewPlacements(design) : chartPlacements(design);
+  const upright = useUpright();
+  const beads = mode === 'preview' ? previewPlacements(design) : chartPlacements(design, upright);
   const b = boundsOf(beads, 6.5);
   if (design.kind === 'bracelet') {
     const r = ringRadius(design.beads.length);
@@ -83,8 +89,19 @@ export function DesignView({ design, mode = 'preview', highlight, class: cls, la
         )}
       {beads.map((p) => {
         const hl = highlight?.(p.ref);
-        return <Bead key={p.key} x={p.x} y={p.y} angle={p.angle} color={p.color} dim={hl === 'dim'} glow={hl === 'on'} />;
+        return <Bead key={p.key} x={p.x} y={p.y} angle={p.angle} color={p.color} dim={hl === 'dim'} glow={hl === 'on' || hl === 'start'} />;
       })}
+      {highlight &&
+        beads
+          .filter((p) => highlight(p.ref) === 'start')
+          .map((p) => (
+            <g key={`start-${p.key}`} transform={`translate(${p.x} ${p.y})`} data-start-marker="1">
+              <circle r="3.4" fill="#ffc93c" stroke="#7a4a00" stroke-width="0.5" />
+              <text y="1.35" text-anchor="middle" font-size="4" font-weight="700" fill="#3a2547">
+                1
+              </text>
+            </g>
+          ))}
     </svg>
   );
 }

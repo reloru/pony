@@ -24,7 +24,24 @@ export function layout3d(d: Design): Bead3D[] {
       return weave3d(d.rows, false);
     case 'critter':
       return weave3d(d.rows, true);
+    case 'peyote':
+      return peyote3d(d.rows);
   }
+}
+
+/** A tube: holes run round the cuff; each row sits half a bead above the one before. */
+function peyote3d(rows: ColorId[][]): Bead3D[] {
+  const n = rows[0].length * 2;
+  const r = (n * BEAD.length) / (2 * Math.PI);
+  const out: Bead3D[] = [];
+  rows.forEach((row, ri) =>
+    row.forEach((c, k) => {
+      const col = 2 * k + (ri % 2);
+      const th = (col * 2 * Math.PI) / n;
+      out.push({ p: [r * Math.cos(th), r * Math.sin(th), ri * (BEAD.diameter / 2)], axis: [-Math.sin(th), Math.cos(th), 0], color: c });
+    }),
+  );
+  return out;
 }
 
 function bracelet3d(beads: ColorId[]): Bead3D[] {

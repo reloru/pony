@@ -1,4 +1,5 @@
 import { STARTERS } from '../../core/designs';
+import { nameKeychain } from '../../core/letters';
 import { cordFor, steps, totalBeads } from '../../core/steps';
 import { TopBar } from '../common';
 import { DesignView } from '../DesignView';
@@ -21,6 +22,20 @@ export function ContactSheet() {
               <div style={{ fontSize: '14px', color: '#7b6688' }}>
                 {totalBeads(d)} beads · {steps(d).length} steps · {cord.inches} in {cord.kind}
               </div>
+            </div>
+          );
+        })}
+      </div>
+      <h2 class="section-title">Name keychain letters</h2>
+      <div class="gallery" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))' }}>
+        {['ABCD', 'EFGH', 'IJKL', 'MNOP', 'QRST', 'UVWX', 'YZ♥'].map((group) => {
+          const d = nameKeychain(group, 's-hot-pink', 's-white', { id: group, createdAt: 0, updatedAt: 0 })!;
+          return (
+            <div key={group} class="card" style={{ minHeight: 0 }}>
+              <div class="thumbbox" style={{ height: '260px' }}>
+                <DesignView design={d} />
+              </div>
+              <div class="title">{group}</div>
             </div>
           );
         })}

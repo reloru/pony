@@ -1,4 +1,5 @@
-import { BEAD, type ColorId, type Design, type Leg, type Side, type WeaveRow } from './types';
+import { around, chunkSizes, ringBeads, roundBeads } from './peyote';
+import { BEAD, type ColorId, type Design, type Leg, type PeyoteDesign, type Side, type WeaveRow } from './types';
 
 export type CordKind = 'lace' | 'stretch';
 
@@ -26,7 +27,18 @@ export type Step =
   | { t: 'leg'; row: number; side: Side; stem: ColorId[]; toes: ColorId[] }
   | { t: 'string'; from: number; beads: ColorId[]; total: number }
   | { t: 'close'; rows: number }
-  | { t: 'tie'; style: 'bracelet' | 'weave' | 'cuff' };
+  /** peyote: string part of the starting ring (beads `from`… of `total`, in order) */
+  | { t: 'ring'; from: number; beads: ColorId[]; total: number }
+  /** peyote: tie the ring closed */
+  | { t: 'tiering'; total: number }
+  /**
+   * peyote: part of a round. Round 1 builds row 3 (rows 1 and 2 are the ring). For each bead:
+   * add it, skip the next bead, go through the one after. `from` counts beads within the round.
+   */
+  | { t: 'round'; round: number; rounds: number; from: number; beads: ColorId[]; perRound: number }
+  /** peyote: go through the first bead of the round just finished */
+  | { t: 'stepup'; round: number }
+  | { t: 'tie'; style: 'bracelet' | 'weave' | 'cuff' | 'peyote' };
 
 /** Rows of the ladder weave for any kind that uses it. */
 export function weaveRows(d: Design): WeaveRow[] | null {
@@ -57,6 +69,8 @@ export function steps(d: Design): Step[] {
     return out;
   }
 
+  if (d.kind === 'peyote') return [...out, ...peyoteSteps(d)];
+
   const rows = weaveRows(d)!;
   const keyring = usesKeyring(d);
   if (keyring) out.push({ t: 'keyring' });
@@ -77,6 +91,30 @@ export function steps(d: Design): Step[] {
   } else {
     out.push({ t: 'tie', style: 'weave' });
   }
+  return out;
+}
+
+/** Peyote: ring in chunks, tie it, then each round in chunks with a step-up between rounds. */
+function peyoteSteps(d: PeyoteDesign): Step[] {
+  const out: Step[] = [];
+  const ring = ringBeads(d.rows);
+  let from = 0;
+  for (const size of chunkSizes(ring.length, 7)) {
+    out.push({ t: 'ring', from, beads: ring.slice(from, from + size), total: ring.length });
+    from += size;
+  }
+  out.push({ t: 'tiering', total: ring.length });
+  const rounds = d.rows.length - 2;
+  for (let j = 1; j <= rounds; j++) {
+    const beads = roundBeads(d.rows, j + 1);
+    let k = 0;
+    for (const size of chunkSizes(beads.length, 7)) {
+      out.push({ t: 'round', round: j, rounds, from: k, beads: beads.slice(k, k + size), perRound: beads.length });
+      k += size;
+    }
+    if (j < rounds) out.push({ t: 'stepup', round: j });
+  }
+  out.push({ t: 'tie', style: 'peyote' });
   return out;
 }
 
@@ -144,6 +182,14 @@ export function cordFor(d: Design): Cord {
   if (d.kind === 'bracelet') {
     return round(d.beads.length * BEAD.length + 2 * 80, 'stretch', 10);
   }
+  if (d.kind === 'peyote') {
+    // One working end: a short tail to tie the ring, the ring itself, then every round runs once
+    // round the cuff (through the new beads and the raised ones) plus the step-up, then the tie-off.
+    const circ = around(d) * BEAD.length;
+    const rounds = d.rows.length - 2;
+    const mm = 120 + circ + 60 + rounds * (circ * 1.15 + BEAD.length * 2) + 150;
+    return round(mm * 1.1, 'stretch', 36);
+  }
   const rows = weaveRows(d)!;
   const u = weaveCordUse(rows, usesKeyring(d), d.kind === 'cuff');
   const total = (u.middle + 2 * Math.max(u.A, u.B)) * 1.15;
@@ -162,6 +208,7 @@ export function beadCounts(d: Design): BeadCount[] {
   const m = new Map<ColorId, number>();
   const add = (c: ColorId) => m.set(c, (m.get(c) ?? 0) + 1);
   if (d.kind === 'bracelet') d.beads.forEach(add);
+  else if (d.kind === 'peyote') d.rows.forEach((r) => r.forEach(add));
   else
     for (const r of weaveRows(d)!) {
       r.beads.forEach(add);
@@ -179,6 +226,8 @@ export function stepBeads(s: Step): ColorId[] {
   switch (s.t) {
     case 'row':
     case 'string':
+    case 'ring':
+    case 'round':
       return s.beads;
     case 'leg':
       return [...s.stem, ...s.toes];
@@ -197,6 +246,8 @@ export function buildBody(d: Design): string {
       return JSON.stringify(['bracelet', d.beads]);
     case 'cuff':
       return JSON.stringify(['cuff', d.rows]);
+    case 'peyote':
+      return JSON.stringify(['peyote', d.rows]);
     default:
       return JSON.stringify([d.kind, d.keyring, d.rows]);
   }

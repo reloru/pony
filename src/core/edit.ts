@@ -1,5 +1,6 @@
 import { COLORS, isStar } from './colors';
 import { nearest } from './colormath';
+import { changeAround, changeRows, peyoteMirror, peyoteNeighbours } from './peyote';
 import { rowBeadX, type BeadRef as BeadRefLike } from './geometry';
 import {
   BEAD,
@@ -8,6 +9,7 @@ import {
   type ColorId,
   type CuffDesign,
   type Design,
+  type PeyoteDesign,
   type Leg,
   type Side,
   type WeaveDesign,
@@ -45,7 +47,7 @@ export function colorAt(d: Design, ref: BeadRefLike): ColorId | undefined {
     case 'ring':
       return d.kind === 'bracelet' ? d.beads[ref.i] : undefined;
     case 'row':
-      if (d.kind === 'cuff') return d.rows[ref.row]?.[ref.i];
+      if (d.kind === 'cuff' || d.kind === 'peyote') return d.rows[ref.row]?.[ref.i];
       if (d.kind === 'flat' || d.kind === 'critter') return d.rows[ref.row]?.beads[ref.i];
       return undefined;
     case 'leg': {
@@ -64,7 +66,7 @@ function setAt(d: Design, ref: BeadRefLike, c: ColorId): boolean {
       d.beads[ref.i] = c;
       return true;
     case 'row':
-      if (d.kind === 'cuff') {
+      if (d.kind === 'cuff' || d.kind === 'peyote') {
         if (!d.rows[ref.row] || ref.i >= d.rows[ref.row].length) return false;
         d.rows[ref.row][ref.i] = c;
         return true;
@@ -92,6 +94,7 @@ export function mirrorRef(d: Design, ref: BeadRefLike): BeadRefLike | null {
     case 'ring':
       return d.kind === 'bracelet' ? { t: 'ring', i: (d.beads.length - ref.i) % d.beads.length } : null;
     case 'row': {
+      if (d.kind === 'peyote') return d.rows[ref.row] ? { t: 'row', ...peyoteMirror(d, ref.row, ref.i) } : null;
       const w = d.kind === 'cuff' ? d.rows[ref.row]?.length : d.kind === 'bracelet' ? 0 : d.rows[ref.row]?.beads.length;
       return w ? { t: 'row', row: ref.row, i: w - 1 - ref.i } : null;
     }
@@ -115,7 +118,7 @@ export function paint<T extends Design>(d: T, ref: BeadRefLike, c: ColorId, mirr
 
 function forEachRef(d: Design, fn: (ref: BeadRefLike) => void) {
   if (d.kind === 'bracelet') d.beads.forEach((_, i) => fn({ t: 'ring', i }));
-  else if (d.kind === 'cuff') d.rows.forEach((r, row) => r.forEach((_, i) => fn({ t: 'row', row, i })));
+  else if (d.kind === 'cuff' || d.kind === 'peyote') d.rows.forEach((r, row) => r.forEach((_, i) => fn({ t: 'row', row, i })));
   else
     d.rows.forEach((r, row) => {
       r.beads.forEach((_, i) => fn({ t: 'row', row, i }));
@@ -196,6 +199,8 @@ function neighbors(d: Design, ref: BeadRefLike): BeadRefLike[] {
   if (ref.t === 'ring' && d.kind === 'bracelet') {
     const n = d.beads.length;
     out.push({ t: 'ring', i: (ref.i + 1) % n }, { t: 'ring', i: (ref.i + n - 1) % n });
+  } else if (ref.t === 'row' && d.kind === 'peyote') {
+    for (const nb of peyoteNeighbours(d, ref.row, ref.i)) out.push({ t: 'row', ...nb });
   } else if (ref.t === 'row' && d.kind === 'cuff') {
     const w = d.rows[0].length;
     if (ref.i > 0) out.push({ t: 'row', row: ref.row, i: ref.i - 1 });
@@ -453,4 +458,16 @@ export function rotateBracelet(d: BraceletDesign, by: number): BraceletDesign {
   const k = ((by % n.beads.length) + n.beads.length) % n.beads.length;
   n.beads = [...n.beads.slice(k), ...n.beads.slice(0, k)];
   return n;
+}
+
+// ---------------------------------------------------------------------------
+// Peyote cuffs
+
+/** Two beads more or fewer around the cuff. */
+export function peyoteAround(d: PeyoteDesign, delta: 1 | -1): PeyoteDesign {
+  return changeAround(clone(d), delta);
+}
+
+export function peyoteRows(d: PeyoteDesign, rows: number): PeyoteDesign {
+  return changeRows(clone(d), rows);
 }

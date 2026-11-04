@@ -201,9 +201,18 @@ svg {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
+/* five kinds: on two columns the last tile spans the row */
+.kind-grid > .kind-tile:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  aspect-ratio: 2.4 / 1;
+}
 @media (min-width: 760px) and (min-aspect-ratio: 5/4) {
   .kind-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .kind-grid > .kind-tile:last-child:nth-child(odd) {
+    grid-column: auto;
+    aspect-ratio: 1 / 1.08;
   }
 }
 @media (min-width: 600px) and (max-aspect-ratio: 5/4) {

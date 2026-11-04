@@ -3,7 +3,8 @@ import type { ColorId, Design, Leg, WeaveRow } from './types';
 
 export type Rebuilt =
   | { kind: 'bracelet'; beads: ColorId[] }
-  | { kind: 'weave'; keyring: boolean; rows: WeaveRow[]; closed: boolean };
+  | { kind: 'weave'; keyring: boolean; rows: WeaveRow[]; closed: boolean }
+  | { kind: 'peyote'; rows: ColorId[][] };
 
 /**
  * Follows the steps exactly as a person would and returns what ends up on the cord.
@@ -12,6 +13,7 @@ export type Rebuilt =
  */
 export function rebuild(steps: Step[]): Rebuilt {
   if (steps[0]?.t !== 'cut') throw new Error('first step must be cutting the cord');
+  if (steps.slice(1).some((s) => s.t === 'ring' || s.t === 'tiering' || s.t === 'round' || s.t === 'stepup')) return rebuildPeyote(steps);
   const strand: ColorId[] = [];
   const rows: WeaveRow[] = [];
   let keyring = false;
@@ -95,7 +97,98 @@ export function expected(d: Design): Rebuilt {
       return { kind: 'bracelet', beads: [...d.beads] };
     case 'cuff':
       return { kind: 'weave', keyring: false, rows: d.rows.map((b) => ({ beads: [...b] })), closed: true };
+    case 'peyote':
+      return { kind: 'peyote', rows: d.rows.map((r) => [...r]) };
     default:
       return { kind: 'weave', keyring: d.keyring, rows: d.rows.map(normRow), closed: false };
   }
+}
+
+/**
+ * Peyote, replayed physically: every column is a stack of beads. The cord sits in some column.
+ * "Add a bead, skip one, go through the next" puts the new bead on top of the column just after
+ * the cord, which must be a gap (lower than both neighbours), then the cord passes through the
+ * raised bead after it. The step-up takes the cord through the first bead of the round.
+ * Rows are read back from the stacks, so this does not reuse the step generator's arithmetic.
+ */
+function rebuildPeyote(steps: Step[]): Rebuilt {
+  const ring: ColorId[] = [];
+  let n = 0;
+  let stacks: { row: number; color: ColorId }[][] = [];
+  let cur = -1;
+  let placed = 0; // beads added in the current round
+  let round = 0;
+  let firstCol = -1;
+  let canStart = false; // ready to begin a new round
+  let tied = false;
+
+  const top = (c: number) => stacks[c][stacks[c].length - 1].row;
+
+  for (const s of steps.slice(1)) {
+    if (tied) throw new Error('step after tying off');
+    switch (s.t) {
+      case 'ring':
+        if (n) throw new Error('ring beads after the ring was tied');
+        if (s.from !== ring.length) throw new Error(`ring chunk starts at ${s.from}, expected ${ring.length}`);
+        ring.push(...s.beads);
+        break;
+      case 'tiering':
+        if (n) throw new Error('ring tied twice');
+        if (ring.length < 4 || ring.length % 2) throw new Error('a peyote ring needs an even number of beads');
+        if (s.total !== ring.length) throw new Error('ring size mismatch');
+        n = ring.length;
+        // Strung in order then tied: ring bead c sits in column c. Every other one will be pushed up.
+        stacks = ring.map((color, c) => [{ row: c % 2, color }]);
+        cur = n - 1; // the long end comes out of the last bead, by the knot
+        canStart = true;
+        break;
+      case 'round': {
+        if (!n) throw new Error('round before the ring is tied');
+        if (s.from === 0) {
+          if (!canStart || placed !== 0) throw new Error(`round ${s.round} started at the wrong time`);
+          if (s.round !== round + 1) throw new Error(`round ${s.round} out of order`);
+          round = s.round;
+          canStart = false;
+          firstCol = -1;
+        } else if (s.round !== round || s.from !== placed) throw new Error(`round ${s.round} part out of order`);
+        for (const color of s.beads) {
+          const target = (cur + 1) % n;
+          const left = cur;
+          const right = (target + 1) % n;
+          if (!(top(target) + 1 === top(left) && top(target) + 1 === top(right))) {
+            throw new Error(`round ${s.round}: no gap for bead ${placed + 1}`);
+          }
+          stacks[target].push({ row: top(target) + 2, color });
+          if (firstCol < 0) firstCol = target;
+          cur = right; // through the raised bead after the gap
+          placed++;
+        }
+        if (placed > n / 2) throw new Error(`round ${s.round} has too many beads`);
+        if (placed === n / 2) placed = 0;
+        break;
+      }
+      case 'stepup':
+        if (placed !== 0 || canStart || s.round !== round) throw new Error('step up at the wrong time');
+        cur = firstCol;
+        canStart = true;
+        break;
+      case 'tie':
+        if (s.style !== 'peyote' || !n || placed !== 0) throw new Error('peyote tied at the wrong time');
+        tied = true;
+        break;
+      default:
+        throw new Error(`unexpected step ${s.t} in a peyote cuff`);
+    }
+  }
+  if (!tied) throw new Error('never tied off');
+  const rowCount = Math.max(...stacks.map((st) => st[st.length - 1].row)) + 1;
+  const rows: ColorId[][] = Array.from({ length: rowCount }, () => []);
+  stacks.forEach((st, c) =>
+    st.forEach((b) => {
+      if (b.row % 2 !== c % 2) throw new Error('bead in the wrong column parity');
+      rows[b.row][(c - (b.row % 2)) / 2] = b.color;
+    }),
+  );
+  for (const r of rows) if (r.length !== n / 2 || r.some((x) => x === undefined)) throw new Error('a row has holes');
+  return { kind: 'peyote', rows };
 }

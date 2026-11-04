@@ -93,11 +93,12 @@ export function parseDesign(x: unknown): Design | null {
       d = { ...(meta as object), kind: x.kind, keyring: x.keyring === true, rows } as Design;
       break;
     }
-    case 'cuff': {
+    case 'cuff':
+    case 'peyote': {
       if (!Array.isArray(x.rows) || x.rows.length > 60) break;
-      const rows = x.rows.map((r) => colors(r, 20));
+      const rows = x.rows.map((r) => colors(r, 40));
       if (rows.some((r) => r === null)) break;
-      d = { ...(meta as object), kind: 'cuff', rows } as Design;
+      d = { ...(meta as object), kind: x.kind, rows } as Design;
       break;
     }
   }

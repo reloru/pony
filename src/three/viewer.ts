@@ -159,7 +159,7 @@ export function createViewer(container: HTMLElement, design: Design, onLost: () 
       const dir =
         d.kind === 'critter'
           ? new Vector3(0.45, 1.05, 1)
-          : d.kind === 'cuff'
+          : d.kind === 'cuff' || d.kind === 'peyote'
             ? new Vector3(0.55, 0.45, 1)
             : d.kind === 'bracelet'
               ? new Vector3(0, -0.55, 1)
