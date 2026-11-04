@@ -4,7 +4,7 @@ import { makeBackup, parseBackup } from '../../app/backup';
 import { useOffline } from '../../app/offline';
 import { applyBackup, getState, useStore } from '../../app/store';
 import { TopBar, toast } from '../common';
-import { installPrompt, promptInstall } from '../../app/install';
+import { isStandalone, promptInstall, useCanInstall } from '../../app/install';
 
 const LAST_KEY = 'bead-studio:last-backup';
 function readLast(): string | null {
@@ -52,8 +52,8 @@ export function Grownups() {
       return false;
     }
   })();
-  const standalone =
-    window.matchMedia?.('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
+  const standalone = isStandalone();
+  const canInstall = useCanInstall();
 
   async function share() {
     const file = backupFile();
@@ -150,9 +150,15 @@ export function Grownups() {
           <p class="ok">✓ Running as an installed app.</p>
         ) : (
           <>
-            {installPrompt.value && (
+            {canInstall && (
               <div class="row" style={{ marginBottom: '8px' }}>
-                <button class="btn pink" onClick={() => void promptInstall()}>
+                <button
+                  class="btn pink"
+                  data-testid="install-grownups"
+                  onClick={async () => {
+                    if (!(await promptInstall())) toast('Use Chrome’s ⋮ menu → Install app');
+                  }}
+                >
                   Install app
                 </button>
               </div>
@@ -162,8 +168,8 @@ export function Grownups() {
               online and wait for “Ready to use offline” on the home screen.
             </p>
             <p>
-              <b>Fire tablet (Chrome):</b> open this page in Chrome, tap the <b>⋮</b> menu, then <b>Add to Home screen</b> (or <b>Install app</b>), then
-              <b> Install</b>.
+              <b>Fire tablet (Chrome):</b> open this page in Chrome. Chrome offers to install it (tap <b>Install</b>), or use the <b>Install</b> button on
+              the home screen. If neither shows up, tap Chrome's <b>⋮</b> menu, then <b>Install app</b> (or <b>Add to Home screen</b>).
             </p>
             <p style={{ fontSize: '15px', color: '#7b6688' }}>
               The installed app keeps its own saved designs, separate from the browser tab, so install first and use it from the icon.

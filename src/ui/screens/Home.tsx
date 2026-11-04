@@ -1,16 +1,19 @@
-import { Heart, Settings, Sparkles, Volume2, VolumeX } from 'lucide-preact';
+import { Download, Heart, Settings, Sparkles, Volume2, VolumeX } from 'lucide-preact';
 import { href } from '../../app/router';
 import { setSettings, useStore } from '../../app/store';
 import { starter } from '../../core/designs';
 import { DesignView } from '../DesignView';
 import { KIND_INFO, KINDS } from '../kinds';
 import { useOfflineStatus } from '../../app/offline';
+import { promptInstall, useCanInstall } from '../../app/install';
+import { toast } from '../common';
 
 const HERO: Record<string, string> = { bracelet: 'b-rainbow', flat: 'f-butterfly', cuff: 'c-hearts', peyote: 'y-hearts', critter: 'k-bee' };
 
 export function Home() {
   const s = useStore();
   const offline = useOfflineStatus();
+  const canInstall = useCanInstall();
   return (
     <div class="screen">
       <div class="hero">
@@ -19,6 +22,18 @@ export function Home() {
           <div class="sub">Dream it. Bead it.</div>
         </div>
         <div class="hero-actions">
+          {canInstall && (
+            <button
+              class="btn pink"
+              data-testid="install"
+              onClick={async () => {
+                if (!(await promptInstall())) toast('Use Chrome’s ⋮ menu → Install app');
+              }}
+            >
+              <Download size={24} />
+              <span class="lbl">Install</span>
+            </button>
+          )}
           <button
             class="btn icon"
             aria-label={s.settings.sound ? 'Sound off' : 'Sound on'}
