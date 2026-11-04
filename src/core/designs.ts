@@ -1,4 +1,4 @@
-import type { BraceletDesign, ColorId, CritterDesign, CuffDesign, Design, FlatDesign, Leg, WeaveRow } from './types';
+import type { BraceletDesign, ColorId, CritterDesign, CuffDesign, Design, FlatDesign, Leg, PeyoteDesign, WeaveRow } from './types';
 
 /**
  * Starter ideas, all original designs for this app. Shapes and critters are written as
@@ -55,6 +55,21 @@ function cuff(id: string, name: string, key: Key, lines: string[]): CuffDesign {
   return { ...base(id, name), kind: 'cuff', rows: lines.map((l) => [...l].map((ch) => need(key, ch))) };
 }
 const rep = (lines: string[], times: number) => Array.from({ length: times }, () => lines).flat();
+
+/**
+ * Peyote from a pixel picture: pixel (x, y) becomes the bead in column x of row 2y or 2y + 1
+ * (whichever row that column belongs to). Every picture's first line is one solid color, so
+ * the starting ring is a single color.
+ */
+function peyote(id: string, name: string, key: Key, pixels: string[]): PeyoteDesign {
+  const w = pixels[0].length;
+  if (w % 2 || pixels.some((l) => l.length !== w)) throw new Error(`${id}: bad picture width`);
+  const rows: ColorId[][] = Array.from({ length: pixels.length * 2 }, (_, r) =>
+    Array.from({ length: w / 2 }, (_, k) => need(key, pixels[r >> 1][2 * k + (r % 2)])),
+  );
+  return { ...base(id, name), kind: 'peyote', rows };
+}
+const tile = (unit: string, times: number) => unit.repeat(times);
 
 // ---------------------------------------------------------------------------
 // Bracelets: 28 beads (about 6½ in around), each repeat divides 28 so the pattern meets itself at the knot.
@@ -208,6 +223,60 @@ const cuffs: CuffDesign[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Peyote cuffs: 28 beads around (about 6½ in), every repeat divides 28.
+
+const peyotes: PeyoteDesign[] = [
+  peyote('y-hearts', 'Heart Ring', { p: 's-pale-pink', h: 's-raspberry', w: 's-white' }, [
+    tile('p', 28),
+    tile('.h.h...', 4),
+    tile('hwhhh..', 4),
+    tile('.hhh...', 4),
+    tile('..h....', 4),
+    tile('p', 28),
+  ].map((l) => l.replace(/\./g, 'p'))),
+  peyote('y-rainbow', 'Rainbow Wave', { r: 's-red', o: 's-orange', y: 's-yellow', g: 's-neon-green', b: 's-blue', v: 's-purple' }, [
+    tile('r', 28),
+    tile('o', 28),
+    tile('y', 28),
+    tile('g', 28),
+    tile('b', 28),
+    tile('v', 28),
+  ]),
+  peyote('y-checkers', 'Checker Pop', { k: 's-black', h: 's-hot-pink', w: 's-white' }, [
+    tile('k', 28),
+    tile('hhww', 7),
+    tile('hhww', 7),
+    tile('wwhh', 7),
+    tile('wwhh', 7),
+    tile('k', 28),
+  ]),
+  peyote('y-twist', 'Candy Twist', { t: 's-turquoise', o: 's-orchid', w: 's-white' }, [
+    tile('w', 28),
+    tile('ttoo', 7),
+    tile('otto', 7),
+    tile('oott', 7),
+    tile('toot', 7),
+    tile('w', 28),
+  ]),
+  peyote('y-stars', 'Starry Night', { n: 's-navy', d: 't-deep-purple', w: 's-white', y: 's-yellow' }, [
+    tile('n', 28),
+    tile('nnnwnnn', 4),
+    tile('ndnnndn', 4),
+    tile('nnynnnn', 4),
+    tile('wnndnnw', 4),
+    tile('n', 28),
+  ]),
+  peyote('y-melon', 'Melon Slice Cuff', { g: 's-green', l: 's-pale-green', r: 's-raspberry', k: 's-black' }, [
+    tile('g', 28),
+    tile('l', 28),
+    tile('rrrkrrr', 4),
+    tile('rkrrrkr', 4),
+    tile('l', 28),
+    tile('g', 28),
+  ]),
+];
+
+// ---------------------------------------------------------------------------
 // 3D critters: a top row and a belly row tucked under it make the body puffy.
 
 const critters: CritterDesign[] = [
@@ -255,7 +324,7 @@ const critters: CritterDesign[] = [
   ),
 ];
 
-export const STARTERS: Design[] = [...bracelets, ...flats, ...cuffs, ...critters];
+export const STARTERS: Design[] = [...bracelets, ...flats, ...cuffs, ...peyotes, ...critters];
 
 export function starter(id: string): Design | undefined {
   return STARTERS.find((d) => d.id === id);

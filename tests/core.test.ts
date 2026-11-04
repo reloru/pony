@@ -4,9 +4,10 @@ import { STARTERS } from '../src/core/designs';
 import * as E from '../src/core/edit';
 import { rebuild, expected } from '../src/core/simulate';
 import { beadCounts, cordFor, stepBeads, steps, weaveCordUse } from '../src/core/steps';
-import type { ColorId, CritterDesign, CuffDesign, Design, FlatDesign, Leg, WeaveRow } from '../src/core/types';
+import type { ColorId, CritterDesign, CuffDesign, Design, FlatDesign, Leg, PeyoteDesign, WeaveRow } from '../src/core/types';
 import { validate } from '../src/core/validate';
-import { weaveLayout } from '../src/core/geometry';
+import { peyoteChart, peyoteStrip, weaveLayout } from '../src/core/geometry';
+import { ringBeads, roundColumns } from '../src/core/peyote';
 import { layout3d } from '../src/core/layout3d';
 
 /** Deterministic PRNG so failures are reproducible. */
@@ -36,7 +37,12 @@ function randomDesign(seed: number): Design {
   const r = rng(seed);
   const pick = (pool: string[]) => pool[Math.floor(r() * pool.length)];
   const base = { id: `x${seed}`, name: 'Random', createdAt: 0, updatedAt: 0 };
-  const which = Math.floor(r() * 4);
+  const which = Math.floor(r() * 5);
+  if (which === 4) {
+    const half = 6 + Math.floor(r() * 15); // 12..40 around
+    const rows = 3 + Math.floor(r() * 18);
+    return { ...base, kind: 'peyote', rows: Array.from({ length: rows }, () => Array.from({ length: half }, () => pick(NON_STAR))) };
+  }
   if (which === 0) {
     return { ...base, kind: 'bracelet', beads: Array.from({ length: 12 + Math.floor(r() * 37) }, () => pick(ALL)) };
   }
@@ -100,7 +106,7 @@ describe('palette', () => {
 describe('starter designs', () => {
   it('has original starters of every kind', () => {
     const kinds = new Set(STARTERS.map((d) => d.kind));
-    expect([...kinds].sort()).toEqual(['bracelet', 'critter', 'cuff', 'flat']);
+    expect([...kinds].sort()).toEqual(['bracelet', 'critter', 'cuff', 'flat', 'peyote']);
     expect(new Set(STARTERS.map((d) => d.id)).size).toBe(STARTERS.length);
   });
   for (const d of STARTERS) {
@@ -239,6 +245,17 @@ describe('editing never makes an unbuildable design', () => {
           if (op === 2) d = E.applyRhythm(d, [c, pick(ALL), pick(ALL)], pick(E.RHYTHMS));
           if (op === 3) d = E.floodFill(d, { t: 'ring', i: 0 }, c, mirror);
           if (op === 4) d = E.surprise(d, ALL, r);
+        } else if (d.kind === 'peyote') {
+          const op = Math.floor(r() * 7);
+          const row = Math.floor(r() * d.rows.length);
+          const i = Math.floor(r() * d.rows[0].length);
+          if (op === 0) d = E.paint(d, { t: 'row', row, i }, c, mirror);
+          if (op === 1) d = E.peyoteAround(d, r() < 0.5 ? 1 : -1);
+          if (op === 2) d = E.peyoteRows(d, d.rows.length + (r() < 0.5 ? -1 : 1));
+          if (op === 3) d = E.floodFill(d, { t: 'row', row, i }, c, mirror);
+          if (op === 4) d = E.swapColor(d, d.rows[0][0], c);
+          if (op === 5) d = E.useMyBeads(d, new Set([pick(ALL), pick(NON_STAR)]));
+          if (op === 6) d = E.surprise(d, ALL, r);
         } else if (d.kind === 'cuff') {
           const op = Math.floor(r() * 5);
           const row = Math.floor(r() * d.rows.length);
@@ -311,10 +328,85 @@ describe('layouts', () => {
       const total = beadCounts(d).reduce((s, b) => s + b.count, 0);
       expect(layout3d(d)).toHaveLength(total);
       if (d.kind === 'flat' || d.kind === 'critter') expect(weaveLayout(d.rows)).toHaveLength(total);
+      if (d.kind === 'peyote') {
+        expect(peyoteChart(d.rows)).toHaveLength(total);
+        expect(peyoteStrip(d.rows)).toHaveLength(total);
+      }
       for (const b of layout3d(d)) {
         expect(b.p.every(Number.isFinite)).toBe(true);
         expect(Math.hypot(...b.axis)).toBeCloseTo(1, 5);
       }
     }
+  });
+});
+
+describe('peyote', () => {
+  const cuff = STARTERS.find((d) => d.kind === 'peyote') as PeyoteDesign;
+  const n = cuff.rows[0].length * 2;
+
+  it('the ring is strung in column order, alternating the two first rows', () => {
+    const ring = ringBeads(cuff.rows);
+    expect(ring).toHaveLength(n);
+    expect(ring[0]).toBe(cuff.rows[0][0]);
+    expect(ring[1]).toBe(cuff.rows[1][0]);
+    expect(ring[n - 1]).toBe(cuff.rows[1][n / 2 - 1]);
+  });
+
+  it('round 1 starts right after the knot; each round starts one column further round', () => {
+    expect(roundColumns(2, n)[0]).toBe(0);
+    expect(roundColumns(3, n)[0]).toBe(1);
+    expect(roundColumns(4, n)[0]).toBe(2);
+    expect(roundColumns(2, n)).toEqual(Array.from({ length: n / 2 }, (_, i) => 2 * i));
+  });
+
+  it('steps: ring in small chunks, a tie, rounds of half the ring, step-ups between rounds', () => {
+    const s = steps(cuff);
+    const ringChunks = s.filter((x) => x.t === 'ring');
+    expect(ringChunks.reduce((a, x) => a + (x.t === 'ring' ? x.beads.length : 0), 0)).toBe(n);
+    for (const x of s) if (x.t === 'ring' || x.t === 'round') expect(x.beads.length).toBeLessThanOrEqual(7);
+    const rounds = cuff.rows.length - 2;
+    expect(s.filter((x) => x.t === 'stepup')).toHaveLength(rounds - 1);
+    expect(s.at(-1)).toEqual({ t: 'tie', style: 'peyote' });
+  });
+
+  it('the replay catches a round started in the wrong place', () => {
+    // Make every bead a different color so any misplacement shows.
+    const d = structuredClone(cuff);
+    let i = 0;
+    const pool = NON_STAR;
+    d.rows = d.rows.map((r) => r.map(() => pool[i++ % pool.length]));
+    const s = steps(d);
+    expect(rebuild(s)).toEqual(expected(d));
+    // Shift round 2 by one bead: the kid started in the wrong gap.
+    const bad = s.map((x) => (x.t === 'round' && x.round === 2 && x.from === 0 ? { ...x, beads: [...x.beads.slice(1), x.beads[0]] } : x));
+    expect(rebuild(bad)).not.toEqual(expected(d));
+    // Forgetting the step-up is not possible to follow.
+    expect(() => rebuild(s.filter((x) => x.t !== 'stepup'))).toThrow();
+    // An odd ring can't be done this way.
+    const odd = s.map((x) => (x.t === 'ring' && x.from === 0 ? { ...x, beads: x.beads.slice(1) } : x));
+    expect(() => rebuild(odd)).toThrow();
+  });
+
+  it('cord: stretchy, at least 3 ft, and grows with the cuff', () => {
+    const c = cordFor(cuff);
+    expect(c.kind).toBe('stretch');
+    expect(c.inches).toBeGreaterThanOrEqual(36);
+    expect(cordFor(E.peyoteRows(cuff, cuff.rows.length + 4)).inches).toBeGreaterThan(c.inches);
+  });
+
+  it('mirror keeps a bead in its row; resizing around keeps the pattern repeating', () => {
+    const m = E.mirrorRef(cuff, { t: 'row', row: 3, i: 2 });
+    expect(m).toMatchObject({ t: 'row', row: 3 });
+    const bigger = E.peyoteAround(cuff, 1);
+    expect(bigger.rows[0].length).toBe(cuff.rows[0].length + 1);
+    expect(validate(bigger)).toEqual([]);
+    expect(E.peyoteAround(bigger, -1).rows).toEqual(cuff.rows);
+  });
+
+  it('stars are refused in peyote', () => {
+    const d = structuredClone(cuff);
+    d.rows[2][0] = 'star-red';
+    expect(validate(d).join()).toMatch(/star/);
+    expect(E.paint(cuff, { t: 'row', row: 2, i: 0 }, 'star-red', false).rows[2][0]).toBe(cuff.rows[2][0]);
   });
 });

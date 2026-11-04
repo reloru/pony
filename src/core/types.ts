@@ -1,6 +1,6 @@
 export type ColorId = string;
 
-export type Kind = 'bracelet' | 'flat' | 'cuff' | 'critter';
+export type Kind = 'bracelet' | 'flat' | 'cuff' | 'peyote' | 'critter';
 export type Side = 'L' | 'R';
 
 /**
@@ -59,13 +59,25 @@ export interface CuffDesign extends DesignBase {
   rows: ColorId[][];
 }
 
-export type Design = BraceletDesign | FlatDesign | CritterDesign | CuffDesign;
+/**
+ * Even-count tubular peyote (kandi "peyote" / "multi" cuff). The tube has `around` columns
+ * (always even). Row r has a bead in every other column: columns c with c % 2 === r % 2, so
+ * rows[r][k] sits in column 2k + (r % 2). Rows 0 and 1 together are the starting ring.
+ */
+export interface PeyoteDesign extends DesignBase {
+  kind: 'peyote';
+  rows: ColorId[][];
+}
+
+export type Design = BraceletDesign | FlatDesign | CritterDesign | CuffDesign | PeyoteDesign;
 export type WeaveDesign = FlatDesign | CritterDesign;
 
 export const LIMITS = {
   bracelet: { min: 12, max: 48 },
   weave: { maxWidth: 11, maxRows: 30, maxStem: 6, maxToes: 5 },
   cuff: { minWidth: 2, maxWidth: 7, minRows: 10, maxRows: 30 },
+  /** beads around (always even) and rows, counting the two rows of the starting ring */
+  peyote: { minAround: 12, maxAround: 40, minRows: 3, maxRows: 20 },
 } as const;
 
 /** Physical bead size in mm: 9 across, 6 along the hole. */

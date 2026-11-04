@@ -36,6 +36,18 @@ export function validate(d: Design): string[] {
       });
       break;
     }
+    case 'peyote': {
+      const L = LIMITS.peyote;
+      if (d.rows.length < L.minRows || d.rows.length > L.maxRows) p.push(`peyote: ${d.rows.length} rows is out of range`);
+      const half = d.rows[0]?.length ?? 0;
+      const n = half * 2;
+      if (n < L.minAround || n > L.maxAround) p.push(`peyote: ${n} beads around is out of range`);
+      d.rows.forEach((r, i) => {
+        if (r.length !== half) p.push(`peyote row ${i + 1}: ${r.length} beads, expected ${half}`);
+        r.forEach((c, j) => checkColor(c, `row ${i + 1} bead ${j + 1}`, false));
+      });
+      break;
+    }
     default:
       p.push('unknown design kind');
   }

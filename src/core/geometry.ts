@@ -146,3 +146,33 @@ export function ringLayout(beads: ColorId[]): Placed[] {
 export function ringRadius(n: number): number {
   return Math.max((n * BEAD.length) / (2 * Math.PI), 12);
 }
+
+// ---------------------------------------------------------------------------
+// Peyote: column c, row r. Neighbouring columns are a bead-length apart (6 mm, along the hole);
+// a column's beads are a bead-width apart, but each row is only half a bead above the last.
+
+export const PEYOTE_ROW = BEAD.diameter / 2;
+
+/** Editor/map chart: columns run down the screen, rows go left to right (ring on the left). */
+export function peyoteChart(rows: ColorId[][]): Placed[] {
+  const out: Placed[] = [];
+  rows.forEach((row, r) =>
+    row.forEach((c, k) => {
+      const col = 2 * k + (r % 2);
+      out.push({ key: `r${r}-${k}`, x: r * PEYOTE_ROW, y: col * BEAD.length, angle: 90, color: c, ref: { t: 'row', row: r, i: k } });
+    }),
+  );
+  return out;
+}
+
+/** The cuff seen flat, like a band: columns left to right, ring at the top. */
+export function peyoteStrip(rows: ColorId[][]): Placed[] {
+  const out: Placed[] = [];
+  rows.forEach((row, r) =>
+    row.forEach((c, k) => {
+      const col = 2 * k + (r % 2);
+      out.push({ key: `r${r}-${k}`, x: col * BEAD.length, y: r * PEYOTE_ROW, angle: 0, color: c, ref: { t: 'row', row: r, i: k } });
+    }),
+  );
+  return out;
+}
