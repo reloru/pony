@@ -1,4 +1,4 @@
-import type { BraceletDesign, ColorId, CritterDesign, CuffDesign, Design, FlatDesign, Leg, PeyoteDesign, WeaveRow } from './types';
+import type { BraceletDesign, ColorId, CritterDesign, CuffDesign, Design, FlatDesign, Leg, PeyoteDesign, WeaveRow, XBaseDesign } from './types';
 
 /**
  * Starter ideas, all original designs for this app. Shapes and critters are written as
@@ -70,6 +70,16 @@ function peyote(id: string, name: string, key: Key, pixels: string[]): PeyoteDes
   return { ...base(id, name), kind: 'peyote', rows };
 }
 const tile = (unit: string, times: number) => unit.repeat(times);
+
+/**
+ * X-base from one repeating unit: ring = connector + pair (3 letters), one 3-letter group per
+ * group row (side, middle, side), top pair (2 letters). Every unit is the same, so it doesn't
+ * matter which connector a round starts from.
+ */
+function xbase(id: string, name: string, key: Key, unit: { ring: string; groups: string[]; top: string }, units = 10): XBaseDesign {
+  const row = (letters: string) => [...letters.repeat(units)].map((ch) => need(key, ch));
+  return { ...base(id, name), kind: 'xbase', rows: [row(unit.ring), ...unit.groups.map(row), row(unit.top)] };
+}
 
 // ---------------------------------------------------------------------------
 // Bracelets: 28 beads (about 6½ in around), each repeat divides 28 so the pattern meets itself at the knot.
@@ -277,6 +287,28 @@ const peyotes: PeyoteDesign[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// X-base cuffs: 10 units = a 30-bead base ring.
+
+const xbases: XBaseDesign[] = [
+  xbase('x-ocean', 'Ocean X', { w: 's-white', t: 's-turquoise', s: 's-sky-blue', n: 's-navy' }, { ring: 'wtt', groups: ['sns', 'sws'], top: 'tt' }),
+  xbase('x-candy', 'Candy X', { w: 's-white', h: 's-hot-pink', l: 's-light-pink', y: 's-yellow' }, { ring: 'whh', groups: ['lyl', 'lwl'], top: 'hh' }),
+  xbase(
+    'x-rainbow',
+    'Rainbow X',
+    { r: 's-red', o: 's-orange', y: 's-yellow', g: 's-neon-green', b: 's-blue', v: 's-purple' },
+    { ring: 'rrr', groups: ['oyo', 'yoy', 'gbg', 'bgb'], top: 'vv' },
+  ),
+  xbase(
+    'x-galaxy',
+    'Galaxy X',
+    { k: 's-black', n: 's-navy', d: 't-deep-purple', w: 's-white' },
+    { ring: 'knn', groups: ['dwd', 'dkd', 'dwd', 'dkd'], top: 'nn' },
+  ),
+  xbase('x-melon', 'Melon X', { g: 's-green', l: 's-pale-green', r: 's-raspberry', k: 's-black' }, { ring: 'lgg', groups: ['rkr', 'rlr'], top: 'gg' }),
+  xbase('x-neon', 'Neon Glow X', { y: 's-neon-yellow', g: 's-neon-green', h: 's-hot-pink', k: 's-black' }, { ring: 'kgg', groups: ['hyh', 'hkh'], top: 'gg' }),
+];
+
+// ---------------------------------------------------------------------------
 // 3D critters: a top row and a belly row tucked under it make the body puffy.
 
 const critters: CritterDesign[] = [
@@ -324,7 +356,7 @@ const critters: CritterDesign[] = [
   ),
 ];
 
-export const STARTERS: Design[] = [...bracelets, ...flats, ...cuffs, ...peyotes, ...critters];
+export const STARTERS: Design[] = [...bracelets, ...flats, ...cuffs, ...peyotes, ...xbases, ...critters];
 
 export function starter(id: string): Design | undefined {
   return STARTERS.find((d) => d.id === id);

@@ -1,6 +1,6 @@
 export type ColorId = string;
 
-export type Kind = 'bracelet' | 'flat' | 'cuff' | 'peyote' | 'critter';
+export type Kind = 'bracelet' | 'flat' | 'cuff' | 'peyote' | 'xbase' | 'critter';
 export type Side = 'L' | 'R';
 
 /**
@@ -69,7 +69,16 @@ export interface PeyoteDesign extends DesignBase {
   rows: ColorId[][];
 }
 
-export type Design = BraceletDesign | FlatDesign | CritterDesign | CuffDesign | PeyoteDesign;
+/**
+ * Kandi X-base cuff. rows[0]: base ring (connector, pair, pair) × n; rows[1..2h]: group rows of
+ * n groups (side, middle, side); last row: n top pairs. See src/core/xbase.ts.
+ */
+export interface XBaseDesign extends DesignBase {
+  kind: 'xbase';
+  rows: ColorId[][];
+}
+
+export type Design = BraceletDesign | FlatDesign | CritterDesign | CuffDesign | PeyoteDesign | XBaseDesign;
 export type WeaveDesign = FlatDesign | CritterDesign;
 
 export const LIMITS = {
@@ -78,6 +87,8 @@ export const LIMITS = {
   cuff: { minWidth: 2, maxWidth: 7, minRows: 10, maxRows: 30 },
   /** beads around (always even) and rows, counting the two rows of the starting ring */
   peyote: { minAround: 12, maxAround: 40, minRows: 3, maxRows: 20 },
+  /** units round the cuff (connector + pair = 3 base beads each) and X's high */
+  xbase: { minUnits: 6, maxUnits: 16, minHigh: 1, maxHigh: 4 },
 } as const;
 
 /** Physical bead size in mm: 9 across, 6 along the hole. */

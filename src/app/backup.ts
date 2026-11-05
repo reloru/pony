@@ -94,9 +94,10 @@ export function parseDesign(x: unknown): Design | null {
       break;
     }
     case 'cuff':
-    case 'peyote': {
+    case 'peyote':
+    case 'xbase': {
       if (!Array.isArray(x.rows) || x.rows.length > 60) break;
-      const rows = x.rows.map((r) => colors(r, 40));
+      const rows = x.rows.map((r) => colors(r, 60));
       if (rows.some((r) => r === null)) break;
       d = { ...(meta as object), kind: x.kind, rows } as Design;
       break;
