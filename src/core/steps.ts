@@ -1,5 +1,6 @@
 import { around, chunkSizes, ringBeads, roundBeads } from './peyote';
-import { BEAD, type ColorId, type Design, type Leg, type PeyoteDesign, type Side, type WeaveRow } from './types';
+import { topRow, unitsAround } from './xbase';
+import { BEAD, type ColorId, type Design, type Leg, type PeyoteDesign, type Side, type WeaveRow, type XBaseDesign } from './types';
 
 export type CordKind = 'lace' | 'stretch';
 
@@ -38,7 +39,19 @@ export type Step =
   | { t: 'round'; round: number; rounds: number; from: number; beads: ColorId[]; perRound: number }
   /** peyote: go through the first bead of the round just finished */
   | { t: 'stepup'; round: number }
-  | { t: 'tie'; style: 'bracelet' | 'weave' | 'cuff' | 'peyote' };
+  /** X-base: string part of the base ring; whole units of (connector, pair, pair) */
+  | { t: 'xring'; from: number; beads: ColorId[]; total: number }
+  /** X-base: tie the base ring closed */
+  | { t: 'xtie'; total: number }
+  /**
+   * X-base: part of a round. 'groups': for each group, string its 3 beads then go through the
+   * next anchor. 'pairs' (the last round): string 2 beads, go through the next anchor.
+   * `from` counts groups (or pairs) within the round; `count` is how many the round has.
+   */
+  | { t: 'xround'; round: number; rounds: number; kind: 'groups' | 'pairs'; from: number; groups: ColorId[][]; count: number }
+  /** X-base: knot, then go through the first group's side bead and middle bead */
+  | { t: 'xup'; round: number }
+  | { t: 'tie'; style: 'bracelet' | 'weave' | 'cuff' | 'peyote' | 'xbase' };
 
 /** Rows of the ladder weave for any kind that uses it. */
 export function weaveRows(d: Design): WeaveRow[] | null {
@@ -70,6 +83,7 @@ export function steps(d: Design): Step[] {
   }
 
   if (d.kind === 'peyote') return [...out, ...peyoteSteps(d)];
+  if (d.kind === 'xbase') return [...out, ...xbaseSteps(d)];
 
   const rows = weaveRows(d)!;
   const keyring = usesKeyring(d);
@@ -115,6 +129,33 @@ function peyoteSteps(d: PeyoteDesign): Step[] {
     if (j < rounds) out.push({ t: 'stepup', round: j });
   }
   out.push({ t: 'tie', style: 'peyote' });
+  return out;
+}
+
+/** X-base: base ring in whole units, tie, then group rounds and the pair round, step-ups between. */
+function xbaseSteps(d: XBaseDesign): Step[] {
+  const out: Step[] = [];
+  const n = unitsAround(d);
+  const top = topRow(d);
+  const ring = d.rows[0];
+  let u = 0;
+  for (const size of chunkSizes(n, 2)) {
+    out.push({ t: 'xring', from: 3 * u, beads: ring.slice(3 * u, 3 * (u + size)), total: ring.length });
+    u += size;
+  }
+  out.push({ t: 'xtie', total: ring.length });
+  for (let r = 1; r <= top; r++) {
+    const pairs = r === top;
+    const per = pairs ? 2 : 3;
+    const groups = Array.from({ length: n }, (_, g) => d.rows[r].slice(per * g, per * g + per));
+    let g = 0;
+    for (const size of chunkSizes(n, pairs ? 4 : 3)) {
+      out.push({ t: 'xround', round: r, rounds: top, kind: pairs ? 'pairs' : 'groups', from: g, groups: groups.slice(g, g + size), count: n });
+      g += size;
+    }
+    if (!pairs) out.push({ t: 'xup', round: r });
+  }
+  out.push({ t: 'tie', style: 'xbase' });
   return out;
 }
 
@@ -182,6 +223,14 @@ export function cordFor(d: Design): Cord {
   if (d.kind === 'bracelet') {
     return round(d.beads.length * BEAD.length + 2 * 80, 'stretch', 10);
   }
+  if (d.kind === 'xbase') {
+    // One working end: tail, the base ring, then each group round goes round the cuff through
+    // 3 new beads and an anchor per unit (with some slack in the arcs), knots, the pair round.
+    const n = unitsAround(d);
+    const groupRounds = topRow(d) - 1;
+    const mm = 120 + 3 * n * BEAD.length + 60 + groupRounds * (n * (4 * BEAD.length + 8) + 40) + n * (3 * BEAD.length + 6) + 40 + 150;
+    return round(mm * 1.15, 'stretch', 36);
+  }
   if (d.kind === 'peyote') {
     // One working end: a short tail to tie the ring, the ring itself, then every round runs once
     // round the cuff (through the new beads and the raised ones) plus the step-up, then the tie-off.
@@ -208,7 +257,7 @@ export function beadCounts(d: Design): BeadCount[] {
   const m = new Map<ColorId, number>();
   const add = (c: ColorId) => m.set(c, (m.get(c) ?? 0) + 1);
   if (d.kind === 'bracelet') d.beads.forEach(add);
-  else if (d.kind === 'peyote') d.rows.forEach((r) => r.forEach(add));
+  else if (d.kind === 'peyote' || d.kind === 'xbase') d.rows.forEach((r) => r.forEach(add));
   else
     for (const r of weaveRows(d)!) {
       r.beads.forEach(add);
@@ -228,7 +277,10 @@ export function stepBeads(s: Step): ColorId[] {
     case 'string':
     case 'ring':
     case 'round':
+    case 'xring':
       return s.beads;
+    case 'xround':
+      return s.groups.flat();
     case 'leg':
       return [...s.stem, ...s.toes];
     default:
@@ -248,6 +300,8 @@ export function buildBody(d: Design): string {
       return JSON.stringify(['cuff', d.rows]);
     case 'peyote':
       return JSON.stringify(['peyote', d.rows]);
+    case 'xbase':
+      return JSON.stringify(['xbase', d.rows]);
     default:
       return JSON.stringify([d.kind, d.keyring, d.rows]);
   }

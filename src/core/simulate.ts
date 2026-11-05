@@ -4,7 +4,8 @@ import type { ColorId, Design, Leg, WeaveRow } from './types';
 export type Rebuilt =
   | { kind: 'bracelet'; beads: ColorId[] }
   | { kind: 'weave'; keyring: boolean; rows: WeaveRow[]; closed: boolean }
-  | { kind: 'peyote'; rows: ColorId[][] };
+  | { kind: 'peyote'; rows: ColorId[][] }
+  | { kind: 'xbase'; rows: ColorId[][] };
 
 /**
  * Follows the steps exactly as a person would and returns what ends up on the cord.
@@ -14,6 +15,7 @@ export type Rebuilt =
 export function rebuild(steps: Step[]): Rebuilt {
   if (steps[0]?.t !== 'cut') throw new Error('first step must be cutting the cord');
   if (steps.slice(1).some((s) => s.t === 'ring' || s.t === 'tiering' || s.t === 'round' || s.t === 'stepup')) return rebuildPeyote(steps);
+  if (steps.slice(1).some((s) => s.t === 'xring' || s.t === 'xtie' || s.t === 'xround' || s.t === 'xup')) return rebuildXBase(steps);
   const strand: ColorId[] = [];
   const rows: WeaveRow[] = [];
   let keyring = false;
@@ -99,6 +101,8 @@ export function expected(d: Design): Rebuilt {
       return { kind: 'weave', keyring: false, rows: d.rows.map((b) => ({ beads: [...b] })), closed: true };
     case 'peyote':
       return { kind: 'peyote', rows: d.rows.map((r) => [...r]) };
+    case 'xbase':
+      return { kind: 'xbase', rows: d.rows.map((r) => [...r]) };
     default:
       return { kind: 'weave', keyring: d.keyring, rows: d.rows.map(normRow), closed: false };
   }
@@ -191,4 +195,84 @@ function rebuildPeyote(steps: Step[]): Rebuilt {
   );
   for (const r of rows) if (r.length !== n / 2 || r.some((x) => x === undefined)) throw new Error('a row has holes');
   return { kind: 'peyote', rows };
+}
+
+/**
+ * X-base, replayed: the base ring is strung connector-first in units of three and tied; its
+ * connectors are the first anchors. A round starts in anchor 0 (straight after the knot, or
+ * after a step-up) and, for each gap, strings a group then goes through the next anchor, so it
+ * passes every anchor once, in ring order, and ends where it began. The middles of the groups
+ * it strung become the next round's anchors. The pair round ends the cuff.
+ */
+function rebuildXBase(steps: Step[]): Rebuilt {
+  const ring: ColorId[] = [];
+  const rows: ColorId[][] = [];
+  let n = 0;
+  let state: 'ring' | 'tied' | 'round' | 'roundDone' | 'stepped' | 'pairsDone' | 'done' = 'ring';
+  let round = 0;
+  let kind: 'groups' | 'pairs' = 'groups';
+  let gaps: (ColorId[] | undefined)[] = [];
+  let cur = 0;
+  let placed = 0;
+
+  for (const s of steps.slice(1)) {
+    if (state === 'done') throw new Error('step after tying off');
+    switch (s.t) {
+      case 'xring':
+        if (state !== 'ring') throw new Error('ring beads after the ring was tied');
+        if (s.from !== ring.length) throw new Error(`ring chunk starts at ${s.from}, expected ${ring.length}`);
+        ring.push(...s.beads);
+        break;
+      case 'xtie':
+        if (state !== 'ring') throw new Error('ring tied twice');
+        if (ring.length % 3 || ring.length < 18) throw new Error('an X-base ring is whole sets of connector + 2 beads');
+        if (s.total !== ring.length) throw new Error('ring size mismatch');
+        n = ring.length / 3;
+        rows.push([...ring]);
+        state = 'tied';
+        break;
+      case 'xround': {
+        if (s.from === 0) {
+          const ok = (s.round === 1 && state === 'tied') || (s.round > 1 && state === 'stepped');
+          if (!ok || s.round !== round + 1) throw new Error(`round ${s.round} started at the wrong time`);
+          round = s.round;
+          kind = s.kind;
+          gaps = Array(n).fill(undefined);
+          cur = 0; // round 1: through the connector right after the knot; later: already there after the step-up
+          placed = 0;
+          state = 'round';
+        } else if (state !== 'round' || s.round !== round || s.kind !== kind || s.from !== placed) throw new Error(`round ${s.round} part out of order`);
+        const size = kind === 'pairs' ? 2 : 3;
+        for (const g of s.groups) {
+          if (g.length !== size) throw new Error(`round ${s.round}: ${g.length} beads where ${size} go`);
+          if (gaps[cur]) throw new Error(`round ${s.round}: gap ${cur + 1} filled twice`);
+          gaps[cur] = [...g];
+          cur = (cur + 1) % n; // through the next anchor
+          placed++;
+        }
+        if (placed > n) throw new Error(`round ${s.round} goes round more than once`);
+        if (placed === n) {
+          if (cur !== 0 || gaps.some((g) => !g)) throw new Error(`round ${s.round} did not end where it began`);
+          rows.push(gaps.flatMap((g) => g!));
+          state = kind === 'pairs' ? 'pairsDone' : 'roundDone';
+        }
+        break;
+      }
+      case 'xup':
+        if (state !== 'roundDone' || s.round !== round) throw new Error('step up at the wrong time');
+        // through the side bead and the middle of the round's first group: anchor 0 of the new level
+        if (rows[rows.length - 1].length !== 3 * n) throw new Error('step up needs groups of three');
+        cur = 0;
+        state = 'stepped';
+        break;
+      case 'tie':
+        if (s.style !== 'xbase' || state !== 'pairsDone') throw new Error('X-base tied at the wrong time');
+        state = 'done';
+        break;
+      default:
+        throw new Error(`unexpected step ${s.t} in an X-base cuff`);
+    }
+  }
+  if (state !== 'done') throw new Error('never tied off');
+  return { kind: 'xbase', rows };
 }

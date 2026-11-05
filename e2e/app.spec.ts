@@ -67,10 +67,10 @@ test('home and galleries fit the screen with big buttons', async ({ page, contex
   const offsite = guardNetwork(context);
   const errors = trackErrors(page);
   await page.goto('/#/');
-  await expect(page.locator('[data-kind]')).toHaveCount(5);
+  await expect(page.locator('[data-kind]')).toHaveCount(6);
   await noHorizontalScroll(page);
   await bigTargets(page, '.kind-tile, .wide-tile, .btn');
-  for (const kind of ['bracelet', 'flat', 'cuff', 'peyote', 'critter']) {
+  for (const kind of ['bracelet', 'flat', 'cuff', 'peyote', 'xbase', 'critter']) {
     await page.goto(`/#/k/${kind}`);
     await expect(page.locator('[data-testid^="idea-"]').first()).toBeVisible();
     await noHorizontalScroll(page);
@@ -243,7 +243,7 @@ test('works fully offline after the first visit', async ({ page, context }) => {
   await expect(page.getByText('Ready to use offline')).toBeVisible({ timeout: 45_000 });
   await context.setOffline(true);
   await page.reload();
-  await expect(page.locator('[data-kind]')).toHaveCount(5);
+  await expect(page.locator('[data-kind]')).toHaveCount(6);
   // every screen, including the separately loaded 3D viewer, must load from the device
   await page.click('[data-kind="critter"]');
   await page.click('[data-testid="idea-k-ladybug"]');
@@ -345,7 +345,7 @@ test('keeps working after the server is gone entirely', async ({ browser }, info
     await srv.stop();
     // The server is closed: anything that loads now came from the service worker's cache.
     await page.reload();
-    await expect(page.locator('[data-kind]')).toHaveCount(5);
+    await expect(page.locator('[data-kind]')).toHaveCount(6);
     await page.click('[data-kind="flat"]');
     await page.click('[data-testid="idea-f-heart"]');
     await expect(page.getByTestId('edit-canvas')).toBeVisible();
@@ -421,6 +421,54 @@ test('peyote editor: size controls, mirror across a column, and the round-1 mark
   await expect(page.locator('[data-start-marker]')).toHaveCount(1);
 });
 
+test('X-base cuff: ring of sets, rounds of groups, knots and step-ups, exact bead totals', async ({ page, context }) => {
+  const offsite = guardNetwork(context);
+  const errors = trackErrors(page);
+  await openStarter(page, 'xbase', 'x-rainbow');
+  await noHorizontalScroll(page);
+  await bigTargets(page, '.editor .btn, .tool, .swatch');
+  await page.click('[data-testid="make-it"]');
+  const kinds = await followAllSteps(page);
+  expect([...kinds]).toEqual(expect.arrayContaining(['cut', 'xring', 'xtie', 'xround', 'xup', 'tie', 'done']));
+  expect(offsite).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('X-base editor: size controls, mirror, and the marked bead 1 in rounds', async ({ page }) => {
+  await openStarter(page, 'xbase', 'x-ocean');
+  await page.click('[data-tool="mirror"]');
+  await expect(page.locator('[data-mirror-axis]')).toHaveCount(1);
+  await page.click('[data-color="s-black"]');
+  const beads = page.locator('[data-testid="edit-canvas"] > g[opacity]');
+  await beads.nth(7).click();
+  await expect(page.locator('[data-testid="edit-canvas"] rect[fill="#1A1A1A"]')).toHaveCount(2);
+  await page.getByTestId('size-units').getByLabel('More sets').click();
+  await expect(page.getByTestId('size-units')).toContainText('33');
+  await page.getByTestId('size-high').getByLabel("More X's high").click();
+  await expect(page.getByTestId('size-high')).toContainText('2');
+  await page.getByTestId('size-high').getByLabel("More X's high").click();
+  await page.getByTestId('size-high').getByLabel("More X's high").click();
+  await page.getByTestId('size-high').getByLabel("More X's high").click();
+  await expect(page.getByTestId('size-high')).toContainText('4');
+  await page.getByTestId('size-units').getByLabel('Less sets').click();
+  await page.getByTestId('size-units').getByLabel('Less sets').click();
+  await expect(page.getByTestId('size-units')).toContainText('27');
+  await page.click('[data-testid="make-it"]');
+  const card = page.getByTestId('step-card');
+  let guard = 0;
+  while ((await card.getAttribute('data-step')) !== 'xround' && guard++ < 20) await page.click('[data-testid="next"]');
+  await expect(page.locator('[data-start-marker]')).toHaveCount(1);
+  await expect(page.locator('[data-testid="bead-seq"] .group-box')).toHaveCount(3);
+  await expect(page.locator('[data-testid="bead-seq"] .through')).toHaveCount(3);
+  await expect(card).toContainText('connector right after the knot');
+  while ((await card.getAttribute('data-step')) !== 'xup' && guard++ < 40) await page.click('[data-testid="next"]');
+  await expect(card).toContainText('Knot and step up');
+  await expect(page.locator('[data-start-marker]')).toHaveCount(1);
+  await page.click('[data-testid="next"]');
+  await expect(card).toHaveAttribute('data-step', 'xround');
+  await expect(card).toContainText('marked 1');
+});
+
 test('name keychain: type a name, pick colors, make it', async ({ page }) => {
   await page.goto('/#/k/flat');
   await page.getByTestId('name-keychain').click();
@@ -440,7 +488,7 @@ test('name keychain: type a name, pick colors, make it', async ({ page }) => {
 
 test('Chrome install prompt: not suppressed, and the Install buttons open it', async ({ page }) => {
   await page.goto('/#/');
-  await expect(page.locator('[data-kind]')).toHaveCount(5);
+  await expect(page.locator('[data-kind]')).toHaveCount(6);
   await expect(page.getByTestId('install')).toHaveCount(0);
   // Simulate Chrome deciding the app is installable (what Chrome on the Fire tablet does).
   const prevented = await page.evaluate(() => {

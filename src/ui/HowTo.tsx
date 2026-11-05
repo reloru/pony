@@ -301,6 +301,92 @@ function StepUpHow() {
   );
 }
 
+/** X-base ring: sets of connector + 2 beads on the cord; connectors have a dotted ring. */
+function XRingHow({ beads }: { beads: ColorId[] }) {
+  const n = beads.length;
+  const w = n * BEAD.length + 60;
+  const x0 = -w / 2 + 22;
+  return (
+    <svg viewBox={`${-w / 2} -14 ${w} 28`} role="img" aria-label="String connector, then 2 beads, for each set">
+      <defs>
+        <Arrow id="ah-xr" color={PINK} />
+      </defs>
+      <path d={`M${-w / 2 + 2} 0 L ${w / 2 - 8} 0`} stroke={PINK} stroke-width="1.2" marker-end="url(#ah-xr)" />
+      {beads.map((c, i) => (
+        <g key={i}>
+          <Bead x={x0 + (i + 0.5) * BEAD.length} y={0} angle={0} color={c} />
+          {i % 3 === 0 && <rect x={x0 + i * BEAD.length - 0.4} y={-5.6} width={BEAD.length + 0.8} height={11.2} rx="3" fill="none" stroke="#7c5cff" stroke-width="0.6" stroke-dasharray="1.2 0.9" />}
+        </g>
+      ))}
+      <text x={x0 + BEAD.length / 2} y={11} text-anchor="middle" font-size="3.2" fill="#7c5cff" font-weight="700">
+        connector
+      </text>
+    </svg>
+  );
+}
+
+/** X-base round: string the group (or pair) between two anchors, then go through the next anchor. Groups hang below, as on the map. */
+function XRoundHow({ group, kind, firstRound }: { group: ColorId[]; kind: 'groups' | 'pairs'; firstRound: boolean }) {
+  const U = 3 * BEAD.length;
+  const H = 8;
+  const anchor = firstRound ? GREY : 's-pale-lavender';
+  const beads =
+    kind === 'pairs'
+      ? group.map((c, k) => ({ x: (k + 1) * BEAD.length, y: 2, a: 0, c }))
+      : [
+          { x: U / 4, y: H / 2, a: 42, c: group[0] },
+          { x: U / 2, y: H, a: 0, c: group[1] },
+          { x: (3 * U) / 4, y: H / 2, a: -42, c: group[2] },
+        ];
+  const path =
+    kind === 'pairs'
+      ? `M 2 2 L ${U - 2} 2 L ${U + 6} 2`
+      : `M 2 1 L ${U / 4} ${H / 2} L ${U / 2} ${H} L ${(3 * U) / 4} ${H / 2} L ${U - 2} 1 L ${U + 6} 1`;
+  return (
+    <svg viewBox={`-14 -10 ${U + 32} 32`} role="img" aria-label="String the beads, then go through the next anchor bead">
+      <defs>
+        <Arrow id="ah-xo" color={PINK} />
+      </defs>
+      <Bead x={0} y={0} angle={0} color={anchor} dim />
+      <Bead x={U} y={0} angle={0} color={anchor} glow />
+      <path d={path} fill="none" stroke={PINK} stroke-width="1" marker-end="url(#ah-xo)" />
+      {beads.map((b, i) => (
+        <Bead key={i} x={b.x} y={b.y} angle={b.a} color={b.c} />
+      ))}
+      <text x={U / 2} y={19} text-anchor="middle" font-size="3.2" fill="#9a8aa6">
+        {kind === 'pairs' ? 'string 2, then go through' : 'string 3, then go through'}
+      </text>
+    </svg>
+  );
+}
+
+/** X-base step up: knot, then through the side bead and the first group's middle (marked 1). */
+function XUpHow() {
+  const U = 3 * BEAD.length;
+  const H = 8;
+  return (
+    <svg viewBox={`-10 -9 ${U + 20} 36`} role="img" aria-label="Knot, then go through the side bead and the middle bead marked 1">
+      <defs>
+        <Arrow id="ah-xu" color="#7a5c99" />
+      </defs>
+      <Bead x={0} y={0} angle={0} color={GREY} dim />
+      <Bead x={U} y={0} angle={0} color={GREY} dim />
+      <Bead x={U / 4} y={H / 2} angle={42} color="s-pale-lavender" />
+      <Bead x={U / 2} y={H} angle={0} color="s-mint" glow />
+      <Bead x={(3 * U) / 4} y={H / 2} angle={-42} color="s-pale-lavender" dim />
+      <circle cx={U / 2} cy={H + 8} r="3" fill="#ffc93c" stroke="#7a4a00" stroke-width="0.5" />
+      <text x={U / 2} y={H + 9.2} text-anchor="middle" font-size="3.6" font-weight="700" fill="#3a2547">
+        1
+      </text>
+      <circle cx={-3.5} cy={-2.5} r="1.6" fill={PINK} />
+      <path d={`M -2 -1 L ${U / 4} ${H / 2} L ${U / 2 + 6} ${H}`} fill="none" stroke="#7a5c99" stroke-width="1.1" marker-end="url(#ah-xu)" />
+      <text x={U / 2} y={25} text-anchor="middle" font-size="3.2" fill="#9a8aa6">
+        knot, then on to bead 1
+      </text>
+    </svg>
+  );
+}
+
 export function HowTo({ step }: { step: Step }) {
   switch (step.t) {
     case 'row':
@@ -325,6 +411,14 @@ export function HowTo({ step }: { step: Step }) {
       return <PeyoteRoundHow beads={step.beads} firstOfRound={step.from === 0} />;
     case 'stepup':
       return <StepUpHow />;
+    case 'xring':
+      return <XRingHow beads={step.beads} />;
+    case 'xtie':
+      return <TieRingHow />;
+    case 'xround':
+      return <XRoundHow group={step.groups[0]} kind={step.kind} firstRound={step.round === 1} />;
+    case 'xup':
+      return <XUpHow />;
     default:
       return null;
   }

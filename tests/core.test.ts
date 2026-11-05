@@ -4,9 +4,10 @@ import { STARTERS } from '../src/core/designs';
 import * as E from '../src/core/edit';
 import { rebuild, expected } from '../src/core/simulate';
 import { beadCounts, cordFor, stepBeads, steps, weaveCordUse } from '../src/core/steps';
-import type { ColorId, CritterDesign, CuffDesign, Design, FlatDesign, Leg, PeyoteDesign, WeaveRow } from '../src/core/types';
+import type { ColorId, CritterDesign, CuffDesign, Design, FlatDesign, Leg, PeyoteDesign, WeaveRow, XBaseDesign } from '../src/core/types';
 import { validate } from '../src/core/validate';
-import { peyoteChart, peyoteStrip, weaveLayout } from '../src/core/geometry';
+import { peyoteChart, peyoteStrip, weaveLayout, xbaseChart, xbaseStrip } from '../src/core/geometry';
+import { UNIT, xbasePositions } from '../src/core/xbase';
 import { ringBeads, roundColumns } from '../src/core/peyote';
 import { GLYPHS, MAX_LETTERS, cleanName, nameKeychain } from '../src/core/letters';
 import { layout3d } from '../src/core/layout3d';
@@ -38,7 +39,13 @@ function randomDesign(seed: number): Design {
   const r = rng(seed);
   const pick = (pool: string[]) => pool[Math.floor(r() * pool.length)];
   const base = { id: `x${seed}`, name: 'Random', createdAt: 0, updatedAt: 0 };
-  const which = Math.floor(r() * 5);
+  const which = Math.floor(r() * 6);
+  if (which === 5) {
+    const n = 6 + Math.floor(r() * 11); // 6..16 units
+    const h = 1 + Math.floor(r() * 4);
+    const row = (len: number) => Array.from({ length: len }, () => pick(NON_STAR));
+    return { ...base, kind: 'xbase', rows: [row(3 * n), ...Array.from({ length: 2 * h }, () => row(3 * n)), row(2 * n)] };
+  }
   if (which === 4) {
     const half = 6 + Math.floor(r() * 15); // 12..40 around
     const rows = 3 + Math.floor(r() * 18);
@@ -107,7 +114,7 @@ describe('palette', () => {
 describe('starter designs', () => {
   it('has original starters of every kind', () => {
     const kinds = new Set(STARTERS.map((d) => d.kind));
-    expect([...kinds].sort()).toEqual(['bracelet', 'critter', 'cuff', 'flat', 'peyote']);
+    expect([...kinds].sort()).toEqual(['bracelet', 'critter', 'cuff', 'flat', 'peyote', 'xbase']);
     expect(new Set(STARTERS.map((d) => d.id)).size).toBe(STARTERS.length);
   });
   for (const d of STARTERS) {
@@ -246,6 +253,17 @@ describe('editing never makes an unbuildable design', () => {
           if (op === 2) d = E.applyRhythm(d, [c, pick(ALL), pick(ALL)], pick(E.RHYTHMS));
           if (op === 3) d = E.floodFill(d, { t: 'ring', i: 0 }, c, mirror);
           if (op === 4) d = E.surprise(d, ALL, r);
+        } else if (d.kind === 'xbase') {
+          const op = Math.floor(r() * 7);
+          const row = Math.floor(r() * d.rows.length);
+          const i = Math.floor(r() * d.rows[row].length);
+          if (op === 0) d = E.paint(d, { t: 'row', row, i }, c, mirror);
+          if (op === 1) d = E.xbaseUnits(d, r() < 0.5 ? 1 : -1);
+          if (op === 2) d = E.xbaseHeight(d, r() < 0.5 ? 1 : -1);
+          if (op === 3) d = E.floodFill(d, { t: 'row', row, i }, c, mirror);
+          if (op === 4) d = E.swapColor(d, d.rows[0][0], c);
+          if (op === 5) d = E.useMyBeads(d, new Set([pick(ALL), pick(NON_STAR)]));
+          if (op === 6) d = E.surprise(d, ALL, r);
         } else if (d.kind === 'peyote') {
           const op = Math.floor(r() * 7);
           const row = Math.floor(r() * d.rows.length);
@@ -329,6 +347,10 @@ describe('layouts', () => {
       const total = beadCounts(d).reduce((s, b) => s + b.count, 0);
       expect(layout3d(d)).toHaveLength(total);
       if (d.kind === 'flat' || d.kind === 'critter') expect(weaveLayout(d.rows)).toHaveLength(total);
+      if (d.kind === 'xbase') {
+        expect(xbaseStrip(d.rows)).toHaveLength(total);
+        expect(xbaseChart(d.rows)).toHaveLength(total);
+      }
       if (d.kind === 'peyote') {
         expect(peyoteChart(d.rows)).toHaveLength(total);
         expect(peyoteStrip(d.rows)).toHaveLength(total);
@@ -433,5 +455,126 @@ describe('name keychains', () => {
     expect(d.rows).toHaveLength(1 + 5 * MAX_LETTERS + (MAX_LETTERS - 1) + 1);
     expect(d.keyring).toBe(true);
     expect(d.rows.every((r) => r.beads.length === 7)).toBe(true);
+  });
+});
+
+describe('x-base', () => {
+  const ocean = STARTERS.find((d) => d.id === 'x-ocean') as XBaseDesign;
+  const meta = { id: 'x', name: 'x', createdAt: 0, updatedAt: 0 };
+  /** every bead a different color, so any misplacement shows */
+  const distinct = (n: number, h: number): XBaseDesign => {
+    let k = 0;
+    const row = (len: number) => Array.from({ length: len }, () => NON_STAR[k++ % NON_STAR.length]);
+    return { ...meta, kind: 'xbase', rows: [row(3 * n), ...Array.from({ length: 2 * h }, () => row(3 * n)), row(2 * n)] };
+  };
+
+  it('steps: whole units in the ring chunks, whole groups in the rounds, a step-up between rounds', () => {
+    const s = steps(ocean);
+    for (const x of s) {
+      if (x.t === 'xring') {
+        expect(x.from % 3).toBe(0);
+        expect(x.beads.length % 3).toBe(0);
+      }
+      if (x.t === 'xround') for (const g of x.groups) expect(g).toHaveLength(x.kind === 'pairs' ? 2 : 3);
+    }
+    expect(s.filter((x) => x.t === 'xup')).toHaveLength(2); // after both group rounds
+    expect(s.at(-2)).toMatchObject({ t: 'xround', kind: 'pairs' });
+    expect(s.at(-1)).toEqual({ t: 'tie', style: 'xbase' });
+  });
+
+  it('the replay catches mistakes', () => {
+    const d = distinct(8, 2);
+    const s = steps(d);
+    expect(rebuild(s)).toEqual(expected(d));
+    // A round started one connector late: every group lands one gap over.
+    const late = s.map((x) => (x.t === 'xround' && x.round === 2 ? { ...x, groups: x.groups.map((_, j) => d.rows[2].slice(3 * ((x.from + j + 1) % 8), 3 * ((x.from + j + 1) % 8) + 3)) } : x));
+    expect(rebuild(late)).not.toEqual(expected(d));
+    const short = s.map((x) => (x.t === 'xround' && x.round === 1 && x.from === 0 ? { ...x, groups: [x.groups[0].slice(0, 2), ...x.groups.slice(1)] } : x));
+    expect(() => rebuild(short)).toThrow();
+    const long = s.map((x) => (x.t === 'xround' && x.round === 1 && x.from === 0 ? { ...x, groups: [[...x.groups[0], 's-red'], ...x.groups.slice(1)] } : x));
+    expect(() => rebuild(long)).toThrow();
+    const pairs3 = s.map((x) => (x.t === 'xround' && x.kind === 'pairs' && x.from === 0 ? { ...x, groups: [[...x.groups[0], 's-red'], ...x.groups.slice(1)] } : x));
+    expect(() => rebuild(pairs3)).toThrow();
+    expect(() => rebuild(s.filter((x) => x.t !== 'xup'))).toThrow();
+    const oddRing = s.map((x) => (x.t === 'xring' && x.from === 0 ? { ...x, beads: x.beads.slice(1) } : x));
+    expect(() => rebuild(oddRing)).toThrow();
+  });
+
+  it('mirror twice gives back every bead, for every size', () => {
+    const bad: string[] = [];
+    for (let n = 6; n <= 16; n++)
+      for (let h = 1; h <= 4; h++) {
+        const d = distinct(n, h);
+        d.rows.forEach((row, r) =>
+          row.forEach((_, i) => {
+            const m = E.mirrorRef(d, { t: 'row', row: r, i });
+            const back = m && m.t === 'row' && m.row === r ? E.mirrorRef(d, m) : null;
+            if (!back || back.t !== 'row' || back.row !== r || back.i !== i) bad.push(`n=${n} h=${h} row ${r} bead ${i}`);
+          }),
+        );
+      }
+    expect(bad).toEqual([]);
+  });
+
+  it('fill on a one-color cuff reaches every bead (the cord joins everything)', () => {
+    for (const [n, h] of [
+      [6, 1],
+      [10, 2],
+      [13, 4],
+    ]) {
+      const d = distinct(n, h);
+      d.rows = d.rows.map((r) => r.map(() => 's-white'));
+      const f = E.floodFill(d, { t: 'row', row: 1, i: 1 }, 's-red', false);
+      expect(f.rows.flat().every((c) => c === 's-red')).toBe(true);
+    }
+  });
+
+  it('her cuff: X centres line up with the edge pairs; connectors sit between pairs; 110 beads for a 30-bead ring', () => {
+    // lavender connectors and arms, mint pairs and X centres, 1 X high (from her photo)
+    const lav = 's-pale-lavender';
+    const mint = 's-mint';
+    const unitRow = (u: string[]) => Array.from({ length: 10 }, () => u).flat();
+    const hers: XBaseDesign = { ...meta, kind: 'xbase', rows: [unitRow([lav, mint, mint]), unitRow([lav, mint, lav]), unitRow([lav, lav, lav]), unitRow([mint, mint])] };
+    assertInstructionsMatch(hers);
+    expect(beadCounts(hers)).toEqual([
+      { color: lav, count: 60 },
+      { color: mint, count: 50 },
+    ]);
+    const pos = xbasePositions(hers.rows);
+    const at = (row: number, i: number) => pos.find((p) => p.row === row && p.i === i)!;
+    for (let u = 0; u < 10; u++) {
+      const centre = at(1, 3 * u + 1).x;
+      const basePair = (at(0, 3 * u + 1).x + at(0, 3 * u + 2).x) / 2;
+      const topPair = (at(3, 2 * u + 1).x + at(3, 2 * u + 2 >= 20 ? 0 : 2 * u + 2).x) / 2;
+      expect(centre).toBeCloseTo(basePair, 5);
+      expect(at(0, 3 * u).x).toBeCloseTo(u * UNIT, 5); // connectors between pairs
+      void topPair;
+    }
+    // Top pairs sit above the X centres too (between the upper connectors).
+    for (let u = 0; u < 10; u++) {
+      const a = at(3, 2 * u).x;
+      const b = at(3, 2 * u + 1).x;
+      const mid = (a + b) / 2;
+      const centre = at(1, 3 * ((u + 1) % 10) + 1).x;
+      expect(Math.abs(mid - centre) < 1e-6 || Math.abs(Math.abs(mid - centre) - 10 * UNIT) < 1e-6).toBe(true);
+    }
+  });
+
+  it('resizing keeps a valid cuff and grows by whole repeats', () => {
+    const bigger = E.xbaseUnits(ocean, 1);
+    expect(bigger.rows[0]).toHaveLength(33);
+    expect(validate(bigger)).toEqual([]);
+    expect(E.xbaseUnits(bigger, -1).rows).toEqual(ocean.rows);
+    const taller = E.xbaseHeight(ocean, 1);
+    expect(taller.rows).toHaveLength(ocean.rows.length + 2);
+    expect(validate(taller)).toEqual([]);
+    expect(E.xbaseHeight(taller, -1).rows).toEqual(ocean.rows);
+    expect(E.xbaseHeight(ocean, -1)).toEqual(ocean); // 1 X high is the minimum
+  });
+
+  it('cord: stretchy and at least 3 ft', () => {
+    const c = cordFor(ocean);
+    expect(c.kind).toBe('stretch');
+    expect(c.inches).toBeGreaterThanOrEqual(36);
   });
 });

@@ -1,4 +1,5 @@
 import { BEAD, type ColorId, type Leg, type Side, type WeaveRow } from './types';
+import { xbasePositions } from './xbase';
 
 /** Where a bead lives in the design, so the editor can change it. */
 export type BeadRef =
@@ -175,4 +176,17 @@ export function peyoteStrip(rows: ColorId[][]): Placed[] {
     }),
   );
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// X-base: positions come from xbase.ts (x round the cuff, y away from the base edge).
+
+/** The cuff seen flat, like a band: base edge at the top. */
+export function xbaseStrip(rows: ColorId[][]): Placed[] {
+  return xbasePositions(rows).map((p) => ({ key: `r${p.row}-${p.i}`, x: p.x, y: p.y, angle: p.angle, color: rows[p.row][p.i], ref: { t: 'row', row: p.row, i: p.i } }));
+}
+
+/** Turned sideways to fit a phone held upright: round the cuff runs down the screen. */
+export function xbaseChart(rows: ColorId[][]): Placed[] {
+  return xbasePositions(rows).map((p) => ({ key: `r${p.row}-${p.i}`, x: p.y, y: p.x, angle: 90 - p.angle, color: rows[p.row][p.i], ref: { t: 'row', row: p.row, i: p.i } }));
 }

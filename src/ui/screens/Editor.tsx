@@ -360,6 +360,23 @@ function SizeControls({ design, onChange }: { design: Design; onChange: (d: Desi
       />
     );
   }
+  if (design.kind === 'xbase') {
+    const n = design.rows[0].length / 3;
+    const h = (design.rows.length - 2) / 2;
+    return (
+      <>
+        <Stepper
+          testid="size-units"
+          label="sets"
+          value={n * 3}
+          sub={`beads · ${inchesAround(n * 3 * BEAD.length)}″`}
+          onMinus={() => onChange(E.xbaseUnits(design, -1))}
+          onPlus={() => onChange(E.xbaseUnits(design, 1))}
+        />
+        <Stepper testid="size-high" label="X's high" value={h} sub="X's high" onMinus={() => onChange(E.xbaseHeight(design, -1))} onPlus={() => onChange(E.xbaseHeight(design, 1))} />
+      </>
+    );
+  }
   if (design.kind === 'peyote') {
     const n = design.rows[0].length * 2;
     const R = design.rows.length;

@@ -48,6 +48,20 @@ export function validate(d: Design): string[] {
       });
       break;
     }
+    case 'xbase': {
+      const L = LIMITS.xbase;
+      const ringLen = d.rows[0]?.length ?? 0;
+      const n = ringLen / 3;
+      const groupRows = d.rows.length - 2;
+      if (!Number.isInteger(n) || n < L.minUnits || n > L.maxUnits) p.push(`x-base: ring of ${ringLen} beads is not ${L.minUnits}–${L.maxUnits} sets of 3`);
+      if (groupRows < 2 * L.minHigh || groupRows > 2 * L.maxHigh || groupRows % 2) p.push(`x-base: ${groupRows} group rows is not ${L.minHigh}–${L.maxHigh} X's high`);
+      d.rows.forEach((r, i) => {
+        const want = i === d.rows.length - 1 && i > 0 ? 2 * n : 3 * n;
+        if (r.length !== want) p.push(`x-base row ${i + 1}: ${r.length} beads, expected ${want}`);
+        r.forEach((c, j) => checkColor(c, `row ${i + 1} bead ${j + 1}`, false));
+      });
+      break;
+    }
     default:
       p.push('unknown design kind');
   }

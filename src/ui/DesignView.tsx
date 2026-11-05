@@ -1,4 +1,5 @@
-import { boundsOf, legBeads, legTilt, peyoteChart, peyoteStrip, ringLayout, ringRadius, rowBeadX, ROW_PITCH, weaveLayout, type BeadRef, type Placed } from '../core/geometry';
+import { UNIT as XUNIT } from '../core/xbase';
+import { boundsOf, legBeads, legTilt, peyoteChart, peyoteStrip, ringLayout, ringRadius, rowBeadX, ROW_PITCH, weaveLayout, xbaseChart, xbaseStrip, type BeadRef, type Placed } from '../core/geometry';
 import { weaveRows } from '../core/steps';
 import { BEAD, type Design, type Leg, type Side, type WeaveRow } from '../core/types';
 import { Bead } from './Bead';
@@ -9,6 +10,7 @@ import { useUpright } from './useUpright';
 export function chartPlacements(d: Design, upright = false): Placed[] {
   if (d.kind === 'bracelet') return ringLayout(d.beads);
   if (d.kind === 'peyote') return upright ? peyoteStrip(d.rows) : peyoteChart(d.rows);
+  if (d.kind === 'xbase') return upright ? xbaseStrip(d.rows) : xbaseChart(d.rows);
   if (d.kind === 'cuff' && upright) return cuffStripPlacements(d.rows);
   return weaveLayout(weaveRows(d)!);
 }
@@ -46,10 +48,12 @@ export function cuffStripPlacements(rows: string[][]): Placed[] {
   return out;
 }
 
-export function previewPlacements(d: Design): Placed[] {
+export function previewPlacements(d: Design, thumb = false): Placed[] {
   if (d.kind === 'critter') return topViewPlacements(d.rows);
   if (d.kind === 'cuff') return cuffStripPlacements(d.rows);
   if (d.kind === 'peyote') return peyoteStrip(d.rows);
+  // A whole X-base strip is too thin to read on a small card, so card thumbnails show a close-up of 5 sets.
+  if (d.kind === 'xbase') return thumb ? xbaseStrip(d.rows).filter((p) => p.x < 5 * XUNIT - 0.5) : xbaseStrip(d.rows);
   return chartPlacements(d);
 }
 
@@ -62,11 +66,13 @@ interface Props {
   highlight?: Highlight;
   class?: string;
   label?: string;
+  /** small card picture: X-base cuffs show a close-up instead of the whole strip */
+  thumb?: boolean;
 }
 
-export function DesignView({ design, mode = 'preview', highlight, class: cls, label }: Props) {
+export function DesignView({ design, mode = 'preview', highlight, class: cls, label, thumb = false }: Props) {
   const upright = useUpright();
-  const beads = mode === 'preview' ? previewPlacements(design) : chartPlacements(design, upright);
+  const beads = mode === 'preview' ? previewPlacements(design, thumb) : chartPlacements(design, upright);
   const b = boundsOf(beads, 6.5);
   if (design.kind === 'bracelet') {
     const r = ringRadius(design.beads.length);

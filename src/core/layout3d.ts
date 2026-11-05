@@ -1,5 +1,6 @@
 import { legBeads, legTilt, ringRadius, rowBeadX, ROW_PITCH } from './geometry';
 import { BEAD, type ColorId, type Design, type Leg, type Side, type WeaveRow } from './types';
+import { UNIT, xbasePositions } from './xbase';
 
 /** One bead in 3D (mm, y up). `axis` is the unit direction of the hole. */
 export interface Bead3D {
@@ -26,7 +27,24 @@ export function layout3d(d: Design): Bead3D[] {
       return weave3d(d.rows, true);
     case 'peyote':
       return peyote3d(d.rows);
+    case 'xbase':
+      return xbase3d(d.rows);
   }
+}
+
+/** The X-base chart wrapped round a tube; each bead's hole follows the cord across the surface. */
+function xbase3d(rows: ColorId[][]): Bead3D[] {
+  const n = rows[0].length / 3;
+  const W = n * UNIT;
+  const r = W / (2 * Math.PI);
+  return xbasePositions(rows).map((p) => {
+    const th = (p.x / W) * 2 * Math.PI;
+    const a = (p.angle * Math.PI) / 180;
+    const t: [number, number, number] = [-Math.sin(th), Math.cos(th), 0];
+    // along the cord: mostly round the tube, tilted along its axis for the diagonal side beads
+    const axis: [number, number, number] = [t[0] * Math.cos(a), t[1] * Math.cos(a), Math.sin(a)];
+    return { p: [r * Math.cos(th), r * Math.sin(th), p.y] as [number, number, number], axis, color: rows[p.row][p.i] };
+  });
 }
 
 /** A tube: holes run round the cuff; each row sits half a bead above the one before. */

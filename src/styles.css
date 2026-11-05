@@ -208,7 +208,7 @@ svg {
 }
 @media (min-width: 760px) and (min-aspect-ratio: 5/4) {
   .kind-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
   .kind-grid > .kind-tile:last-child:nth-child(odd) {
     grid-column: auto;
@@ -1089,4 +1089,28 @@ svg {
     width: var(--tap);
     padding: 0;
   }
+}
+
+/* X-base: one box per group, an arrow for "then go through the next one" */
+.group-box {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+.group-box .chip {
+  padding: 2px 8px 2px 2px;
+  font-size: 18px;
+}
+.bead-seq .through {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--violet);
+}
+.chip.conn {
+  padding: 2px;
+  outline: 2px dashed var(--violet);
+  outline-offset: -2px;
 }

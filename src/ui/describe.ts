@@ -136,7 +136,55 @@ export function describe(s: Step, opts: { firstCrossRow: boolean; keyring: boole
         text: `Go through the **first bead you added in round ${s.round}** (marked 1 on the map). Now you're ready for the next round.`,
         tip: 'This is the “step up”. Do it at the end of every round.',
       };
+    case 'xring': {
+      const units = s.beads.length / 3;
+      const end = s.from + s.beads.length;
+      return {
+        title: `Start ring · ${s.from + 1}–${end}`,
+        text: `String ${units === 1 ? 'this set' : `these ${units} sets`} in order: a **connector** bead, then **2 beads**.${s.from === 0 ? ' Leave a short tail (a hand length) at the start.' : ''}`,
+        tip: end === s.total ? `That's all ${s.total} ring beads. Don't tie yet. Next step!` : s.from === 0 ? 'The connector is the first bead of every set (it has a dotted ring).' : undefined,
+      };
+    }
+    case 'xtie':
+      return {
+        title: 'Tie the ring',
+        text: 'Tie the two ends together into a ring with a **double knot**. Keep the **long end**; trim the short end.',
+        tip: `Your ring has ${s.total / 3} connectors. The X's hang between them.`,
+      };
+    case 'xround': {
+      const what = s.kind === 'pairs' ? 'pair' : 'group';
+      const n = s.groups.length;
+      const part = s.count > n ? ` · ${what}s ${s.from + 1}–${s.from + n}` : '';
+      const last = s.kind === 'pairs' ? 'Last round' : `Round ${s.round}`;
+      const each =
+        s.kind === 'pairs'
+          ? 'For each pair: **string the 2 beads, then go through the next middle bead**.'
+          : `For each group: **string the 3 beads, then go through the next ${s.round === 1 ? 'connector' : 'middle bead'}**.`;
+      if (s.from === 0) {
+        const start =
+          s.round === 1 ? 'Go through the **connector right after the knot** (marked 1 on the map). ' : 'You’re in the bead marked 1 on the map. ';
+        return { title: `${last}${part}`, text: start + each, tip: s.kind === 'groups' ? 'Each group makes a little point. Pull snug.' : 'This makes the second edge.' };
+      }
+      const end = s.from + n === s.count;
+      return {
+        title: `${last}${part}`,
+        text: `Keep going. ${each}`,
+        tip: end ? `That's the whole round: you're back at the bead marked 1.` : undefined,
+      };
+    }
+    case 'xup':
+      return {
+        title: 'Knot and step up',
+        text: `Tie a small knot around the cord to lock round ${s.round}. Then go through the **next bead and the middle bead of the first group** (marked 1 on the map).`,
+        tip: 'Now you’re ready for the next round. Don’t cut the cord!',
+      };
     case 'tie':
+      if (s.style === 'xbase')
+        return {
+          title: 'Tie it off',
+          text: 'Tie a **double knot** around the cord between two beads. Push the end through a few beads, then trim it.',
+          tip: 'It looks floppy until it’s done. That’s normal!',
+        };
       if (s.style === 'peyote')
         return {
           title: 'Tie it off',
@@ -156,10 +204,17 @@ export function describe(s: Step, opts: { firstCrossRow: boolean; keyring: boole
   }
 }
 
-export function speech(t: StepText, beads: ColorId[]): string {
+export function speech(t: StepText, beads: ColorId[], beadText?: string): string {
   const plain = (x: string) => x.replace(/\*\*/g, '');
   const parts = [plain(t.title) + '.', plain(t.text)];
-  if (beads.length) parts.push(spokenBeads(beads) + '.');
+  if (beadText) parts.push(beadText);
+  else if (beads.length) parts.push(spokenBeads(beads) + '.');
   if (t.tip) parts.push(plain(t.tip));
   return parts.join(' ');
+}
+
+/** Read-aloud for an X-base round: group by group, so two neighbouring beads of one color never merge. */
+export function spokenGroups(groups: ColorId[][], kind: 'groups' | 'pairs'): string {
+  const through = kind === 'pairs' ? 'go through the next middle bead' : 'go through the next one';
+  return groups.map((g) => `${g.map(longName).join(', ')}, then ${through}`).join('. ') + '.';
 }
