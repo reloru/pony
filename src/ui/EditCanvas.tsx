@@ -295,6 +295,18 @@ export function EditCanvas({ design, tool, mirror, color, onChange, onCancelStro
       aria-label="Design canvas"
     >
       {critterBands}
+      {mirror && design.kind === 'xbase' && (
+        // X-base mirrors across the line through connector 1 (and half way round).
+        <g data-mirror-axis="1">
+          {[0, (design.rows[0].length / 3) * 9].map((at) =>
+            upright ? (
+              <line key={at} y1={vy} y2={vy + vh} x1={at} x2={at} stroke="#12b5a3" stroke-width="0.6" stroke-dasharray="2 1.5" />
+            ) : (
+              <line key={at} x1={vx} x2={vx + vw} y1={at} y2={at} stroke="#12b5a3" stroke-width="0.6" stroke-dasharray="2 1.5" />
+            ),
+          )}
+        </g>
+      )}
       {mirror && design.kind === 'peyote' && (
         // Peyote mirrors across a column (the tube wraps round), shown as dashed lines.
         <g data-mirror-axis="1">

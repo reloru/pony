@@ -6,10 +6,11 @@ export const KIND_INFO: Record<Kind, { label: string; one: string; color: string
   flat: { label: 'Keychains', one: 'Keychain', color: '#ffc061', ink: '#7a4a00', cord: 'plastic lace', is3d: false },
   cuff: { label: 'Ladder Cuffs', one: 'Ladder cuff', color: '#6fd3f5', ink: '#0b4f66', cord: 'stretchy cord', is3d: true },
   peyote: { label: 'Peyote Cuffs', one: 'Peyote cuff', color: '#c9b2ff', ink: '#41237a', cord: 'stretchy cord', is3d: true },
+  xbase: { label: 'X-base Cuffs', one: 'X-base cuff', color: '#ffb199', ink: '#7a2e14', cord: 'stretchy cord', is3d: true },
   critter: { label: 'Critters', one: 'Critter', color: '#8fe08a', ink: '#1f5c1c', cord: 'plastic lace', is3d: true },
 };
 
-export const KINDS: Kind[] = ['bracelet', 'flat', 'cuff', 'peyote', 'critter'];
+export const KINDS: Kind[] = ['bracelet', 'flat', 'cuff', 'peyote', 'xbase', 'critter'];
 
 const W = 's-white';
 
@@ -25,6 +26,8 @@ export function blankDesign(kind: Kind): Design {
       return { ...meta, kind, rows: Array.from({ length: 18 }, () => Array(5).fill(W)) };
     case 'peyote':
       return { ...meta, kind, rows: Array.from({ length: 8 }, () => Array(14).fill(W)) };
+    case 'xbase':
+      return { ...meta, kind, rows: [Array(30).fill(W), Array(30).fill(W), Array(30).fill(W), Array(20).fill(W)] };
     case 'critter':
       return {
         ...meta,

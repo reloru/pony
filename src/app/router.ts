@@ -11,7 +11,7 @@ export type Route =
   | { name: 'grownups' }
   | { name: 'sheet' };
 
-const KINDS: Kind[] = ['bracelet', 'flat', 'cuff', 'peyote', 'critter'];
+const KINDS: Kind[] = ['bracelet', 'flat', 'cuff', 'peyote', 'xbase', 'critter'];
 
 export function parse(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);

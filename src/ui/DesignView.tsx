@@ -1,4 +1,5 @@
-import { boundsOf, legBeads, legTilt, peyoteChart, peyoteStrip, ringLayout, ringRadius, rowBeadX, ROW_PITCH, weaveLayout, type BeadRef, type Placed } from '../core/geometry';
+import { UNIT as XUNIT } from '../core/xbase';
+import { boundsOf, legBeads, legTilt, peyoteChart, peyoteStrip, ringLayout, ringRadius, rowBeadX, ROW_PITCH, weaveLayout, xbaseChart, xbaseStrip, type BeadRef, type Placed } from '../core/geometry';
 import { weaveRows } from '../core/steps';
 import { BEAD, type Design, type Leg, type Side, type WeaveRow } from '../core/types';
 import { Bead } from './Bead';
@@ -9,6 +10,7 @@ import { useUpright } from './useUpright';
 export function chartPlacements(d: Design, upright = false): Placed[] {
   if (d.kind === 'bracelet') return ringLayout(d.beads);
   if (d.kind === 'peyote') return upright ? peyoteStrip(d.rows) : peyoteChart(d.rows);
+  if (d.kind === 'xbase') return upright ? xbaseStrip(d.rows) : xbaseChart(d.rows);
   if (d.kind === 'cuff' && upright) return cuffStripPlacements(d.rows);
   return weaveLayout(weaveRows(d)!);
 }
@@ -50,6 +52,8 @@ export function previewPlacements(d: Design): Placed[] {
   if (d.kind === 'critter') return topViewPlacements(d.rows);
   if (d.kind === 'cuff') return cuffStripPlacements(d.rows);
   if (d.kind === 'peyote') return peyoteStrip(d.rows);
+  // A 30-bead X-base strip is too thin to read on a card, so previews show a close-up of 5 sets.
+  if (d.kind === 'xbase') return xbaseStrip(d.rows).filter((p) => p.x < 5 * XUNIT - 0.5);
   return chartPlacements(d);
 }
 

@@ -8,7 +8,7 @@ import { useOfflineStatus } from '../../app/offline';
 import { promptInstall, useCanInstall } from '../../app/install';
 import { toast } from '../common';
 
-const HERO: Record<string, string> = { bracelet: 'b-rainbow', flat: 'f-butterfly', cuff: 'c-hearts', peyote: 'y-hearts', critter: 'k-bee' };
+const HERO: Record<string, string> = { bracelet: 'b-rainbow', flat: 'f-butterfly', cuff: 'c-hearts', peyote: 'y-hearts', xbase: 'x-ocean', critter: 'k-bee' };
 
 export function Home() {
   const s = useStore();

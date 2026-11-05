@@ -10,7 +10,7 @@ import { beadCounts, cordFor, stepBeads, steps as makeSteps, totalBeads, usesKey
 import type { Design } from '../../core/types';
 import { Swatch } from '../Bead';
 import { Confetti, TopBar } from '../common';
-import { describe, runs, speech, type StepText } from '../describe';
+import { describe, runs, speech, spokenGroups, type StepText } from '../describe';
 import { DesignView } from '../DesignView';
 import { HowTo } from '../HowTo';
 import { KIND_INFO } from '../kinds';
@@ -40,6 +40,11 @@ function stepRefs(design: Design, s: Step): BeadRef[] {
       const c = s.from + i;
       return { t: 'row' as const, row: c % 2, i: kOf(c % 2, c) };
     });
+  if (s.t === 'xring') return s.beads.map((_, i) => ({ t: 'row' as const, row: 0, i: s.from + i }));
+  if (s.t === 'xround') {
+    const per = s.kind === 'pairs' ? 2 : 3;
+    return s.groups.flatMap((g, j) => g.map((_, k) => ({ t: 'row' as const, row: s.round, i: per * (s.from + j) + k })));
+  }
   if (s.t === 'round' && design.kind === 'peyote') {
     const row = s.round + 1;
     return roundColumns(row, around(design))
@@ -49,8 +54,17 @@ function stepRefs(design: Design, s: Step): BeadRef[] {
   return [];
 }
 
-/** Peyote: the first bead of the round a step belongs to, marked "1" on the map. */
+/**
+ * The bead marked "1" on the map. Peyote: the first bead of the round. X-base: the bead the
+ * round starts by going through (round 1: the connector after the knot; later rounds: the first
+ * group's middle), and for a step-up, the middle bead to step up into.
+ */
 function roundStart(design: Design, s: Step): BeadRef | null {
+  if (design.kind === 'xbase') {
+    if (s.t === 'xround') return s.round === 1 ? { t: 'row', row: 0, i: 0 } : { t: 'row', row: s.round - 1, i: 1 };
+    if (s.t === 'xup') return { t: 'row', row: s.round, i: 1 };
+    return null;
+  }
   if (design.kind !== 'peyote' || (s.t !== 'round' && s.t !== 'stepup')) return null;
   const row = s.round + 1;
   return { t: 'row', row, i: kOf(row, roundColumns(row, around(design))[0]) };
@@ -109,7 +123,17 @@ function MakeInner({ design }: { design: Design }) {
   const step = page >= 1 && page <= steps.length ? steps[page - 1] : null;
   const text: StepText | null = step ? describe(step, { firstCrossRow: page - 1 === firstCross, keyring: usesKeyring(design) }) : null;
   const beads = step ? stepBeads(step) : [];
-  const showMap = step && (step.t === 'row' || step.t === 'leg' || step.t === 'string' || step.t === 'ring' || step.t === 'round' || step.t === 'stepup');
+  const showMap =
+    step &&
+    (step.t === 'row' ||
+      step.t === 'leg' ||
+      step.t === 'string' ||
+      step.t === 'ring' ||
+      step.t === 'round' ||
+      step.t === 'stepup' ||
+      step.t === 'xring' ||
+      step.t === 'xround' ||
+      step.t === 'xup');
   const startRef = step ? roundStart(design, step) : null;
   const startKey = startRef ? key(startRef) : null;
 
@@ -125,7 +149,7 @@ function MakeInner({ design }: { design: Design }) {
     <div class="screen make">
       <TopBar title={design.name} backTo={{ name: 'edit', id: design.id }}>
         {voice && step && text && (
-          <button class="btn icon violet" aria-label="Read aloud" onClick={() => speak(speech(text, beads), voice)}>
+          <button class="btn icon violet" aria-label="Read aloud" onClick={() => speak(step.t === 'xround' ? speech(text, [], spokenGroups(step.groups, step.kind)) : speech(text, beads), voice)}>
             <Volume2 size={28} />
           </button>
         )}
@@ -147,7 +171,13 @@ function MakeInner({ design }: { design: Design }) {
             <div class="step-text">
               <Rich text={text.text} />
             </div>
-            {beads.length > 0 && <BeadSeq beads={beads} owned={s.owned} />}
+            {step.t === 'xround' ? (
+              <GroupSeq groups={step.groups} kind={step.kind} owned={s.owned} />
+            ) : step.t === 'xring' ? (
+              <UnitSeq beads={step.beads} owned={s.owned} />
+            ) : (
+              beads.length > 0 && <BeadSeq beads={beads} owned={s.owned} />
+            )}
             <div class="step-body">
               <div class="how">
                 <HowTo step={step} />
@@ -193,6 +223,49 @@ function BeadSeq({ beads, owned }: { beads: string[]; owned: Set<string> }) {
             <Swatch id={r.color} size={34} />×{r.count}
           </span>
         </Fragment>
+      ))}
+    </div>
+  );
+}
+
+/** X-base round: each group in its own box, with "then through the next one" between them. */
+function GroupSeq({ groups, kind, owned }: { groups: string[][]; kind: 'groups' | 'pairs'; owned: Set<string> }) {
+  return (
+    <div class="bead-seq" aria-label={kind === 'pairs' ? 'Pairs in order' : 'Groups in order'} data-testid="bead-seq">
+      {groups.map((g, gi) => (
+        <Fragment key={gi}>
+          <span class="group-box" data-group={gi}>
+            {runs(g).map((r, i) => (
+              <span key={i} class={`chip${owned.size && !owned.has(r.color) ? ' warn' : ''}`} title={longName(r.color)} data-color={r.color} data-count={r.count}>
+                <Swatch id={r.color} size={30} />×{r.count}
+              </span>
+            ))}
+          </span>
+          <span class="through" title="then go through the next one">
+            ↷
+          </span>
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
+/** X-base ring: sets of connector + pair, the connector chip marked with a dotted ring. */
+function UnitSeq({ beads, owned }: { beads: string[]; owned: Set<string> }) {
+  const units = Array.from({ length: beads.length / 3 }, (_, u) => beads.slice(3 * u, 3 * u + 3));
+  return (
+    <div class="bead-seq" aria-label="Sets in order" data-testid="bead-seq">
+      {units.map((u, ui) => (
+        <span key={ui} class="group-box">
+          <span class={`chip conn${owned.size && !owned.has(u[0]) ? ' warn' : ''}`} title={`connector: ${longName(u[0])}`} data-color={u[0]} data-count={1}>
+            <Swatch id={u[0]} size={30} />
+          </span>
+          {runs(u.slice(1)).map((r, i) => (
+            <span key={i} class={`chip${owned.size && !owned.has(r.color) ? ' warn' : ''}`} title={longName(r.color)} data-color={r.color} data-count={r.count}>
+              <Swatch id={r.color} size={30} />×{r.count}
+            </span>
+          ))}
+        </span>
       ))}
     </div>
   );
