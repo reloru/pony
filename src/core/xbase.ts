@@ -117,16 +117,30 @@ export function xbaseNeighbours(d: XBaseDesign, row: number, i: number): { row: 
 
 const key = (row: number, x: number) => `${row}:${Math.round(x * 100)}`;
 
+/** Mirror lookups depend only on the cuff's shape (row lengths), so build each one once. */
+const mirrorTables = new Map<string, Map<string, { row: number; i: number }>>();
+
+function mirrorTable(rows: ColorId[][]): Map<string, { row: number; i: number }> {
+  const shape = rows.map((r) => r.length).join(',');
+  let table = mirrorTables.get(shape);
+  if (table) return table;
+  const W = unitsAround({ rows }) * UNIT;
+  const pos = xbasePositions(rows);
+  const at = new Map(pos.map((p) => [key(p.row, p.x), p]));
+  table = new Map();
+  for (const p of pos) {
+    const hit = at.get(key(p.row, (W - p.x) % W));
+    if (hit) table.set(`${p.row}:${p.i}`, { row: hit.row, i: hit.i });
+  }
+  if (mirrorTables.size > 50) mirrorTables.clear();
+  mirrorTables.set(shape, table);
+  return table;
+}
+
 /** Mirror across the line x = 0 (and x = half way round): same row, mirrored position. */
 export function xbaseMirror(d: XBaseDesign, row: number, i: number): { row: number; i: number } | null {
-  const n = unitsAround(d);
-  const W = n * UNIT;
-  const pos = xbasePositions(d.rows);
-  const me = pos.find((p) => p.row === row && p.i === i);
-  if (!me) return null;
-  const want = key(row, (W - me.x) % W);
-  const hit = pos.find((p) => key(p.row, p.x) === want);
-  return hit ? { row: hit.row, i: hit.i } : null;
+  const hit = mirrorTable(d.rows).get(`${row}:${i}`);
+  return hit ? { ...hit } : null;
 }
 
 // ---------------------------------------------------------------------------

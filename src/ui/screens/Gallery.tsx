@@ -56,7 +56,7 @@ export function KindGallery({ kind }: { kind: Kind }) {
         {ideas.map((d) => (
           <button key={d.id} class="card" data-testid={`idea-${d.id}`} onClick={() => startFrom(d)}>
             <div class="thumbbox">
-              <DesignView design={d} />
+              <DesignView design={d} thumb />
             </div>
             <div class="title">{d.name}</div>
           </button>
@@ -184,7 +184,7 @@ function DesignList({ designs }: { designs: Design[] }) {
               </span>
             )}
             <button class="thumbbox" style={{ border: 0 }} aria-label={`Edit ${d.name}`} onClick={() => go({ name: 'edit', id: d.id })}>
-              <DesignView design={d} />
+              <DesignView design={d} thumb />
             </button>
             <div class="title">{d.name}</div>
             <div class="card-actions">

@@ -501,18 +501,19 @@ describe('x-base', () => {
   });
 
   it('mirror twice gives back every bead, for every size', () => {
+    const bad: string[] = [];
     for (let n = 6; n <= 16; n++)
       for (let h = 1; h <= 4; h++) {
         const d = distinct(n, h);
         d.rows.forEach((row, r) =>
           row.forEach((_, i) => {
             const m = E.mirrorRef(d, { t: 'row', row: r, i });
-            expect(m, `n=${n} h=${h} row ${r} bead ${i}`).not.toBeNull();
-            expect(m).toMatchObject({ row: r });
-            expect(E.mirrorRef(d, m!)).toEqual({ t: 'row', row: r, i });
+            const back = m && m.t === 'row' && m.row === r ? E.mirrorRef(d, m) : null;
+            if (!back || back.t !== 'row' || back.row !== r || back.i !== i) bad.push(`n=${n} h=${h} row ${r} bead ${i}`);
           }),
         );
       }
+    expect(bad).toEqual([]);
   });
 
   it('fill on a one-color cuff reaches every bead (the cord joins everything)', () => {

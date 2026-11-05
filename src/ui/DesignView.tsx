@@ -48,12 +48,12 @@ export function cuffStripPlacements(rows: string[][]): Placed[] {
   return out;
 }
 
-export function previewPlacements(d: Design): Placed[] {
+export function previewPlacements(d: Design, thumb = false): Placed[] {
   if (d.kind === 'critter') return topViewPlacements(d.rows);
   if (d.kind === 'cuff') return cuffStripPlacements(d.rows);
   if (d.kind === 'peyote') return peyoteStrip(d.rows);
-  // A 30-bead X-base strip is too thin to read on a card, so previews show a close-up of 5 sets.
-  if (d.kind === 'xbase') return xbaseStrip(d.rows).filter((p) => p.x < 5 * XUNIT - 0.5);
+  // A whole X-base strip is too thin to read on a small card, so card thumbnails show a close-up of 5 sets.
+  if (d.kind === 'xbase') return thumb ? xbaseStrip(d.rows).filter((p) => p.x < 5 * XUNIT - 0.5) : xbaseStrip(d.rows);
   return chartPlacements(d);
 }
 
@@ -66,11 +66,13 @@ interface Props {
   highlight?: Highlight;
   class?: string;
   label?: string;
+  /** small card picture: X-base cuffs show a close-up instead of the whole strip */
+  thumb?: boolean;
 }
 
-export function DesignView({ design, mode = 'preview', highlight, class: cls, label }: Props) {
+export function DesignView({ design, mode = 'preview', highlight, class: cls, label, thumb = false }: Props) {
   const upright = useUpright();
-  const beads = mode === 'preview' ? previewPlacements(design) : chartPlacements(design, upright);
+  const beads = mode === 'preview' ? previewPlacements(design, thumb) : chartPlacements(design, upright);
   const b = boundsOf(beads, 6.5);
   if (design.kind === 'bracelet') {
     const r = ringRadius(design.beads.length);

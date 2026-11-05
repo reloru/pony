@@ -54,7 +54,7 @@ export function Home() {
           return (
             <a key={k} class="kind-tile" href={href({ name: 'kind', kind: k })} style={{ background: info.color }} data-kind={k}>
               {info.is3d && <span class="badge3d" style={{ color: info.ink }}>3D</span>}
-              <DesignView design={d} class="thumb" label={info.label} />
+              <DesignView design={d} class="thumb" label={info.label} thumb />
               <span class="name" style={{ color: info.ink }}>
                 {info.label}
               </span>
